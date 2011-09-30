@@ -11,6 +11,7 @@
 #endif
 #include <iostream>
 #include <cstdlib>
+#include <cstring>
 using namespace std;
 
 static bool initialized = false;
