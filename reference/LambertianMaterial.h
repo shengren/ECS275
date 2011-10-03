@@ -10,8 +10,10 @@ class LambertianMaterial : public Material {
   LambertianMaterial(const Color& color, float Kd, float Ka);
   virtual ~LambertianMaterial();
 
+  // LSR 11-10-02
+  // set default value for 'depth'
   virtual void shade(Color& result, const RenderContext& context, const Ray& ray,
-                     const HitRecord& hit, const Color& atten, int depth) const;
+                     const HitRecord& hit, const Color& atten, int depth = 1) const;
 
  private:
   LambertianMaterial(const LambertianMaterial&);
