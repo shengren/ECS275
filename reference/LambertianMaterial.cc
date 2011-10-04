@@ -117,8 +117,10 @@ void LambertianMaterial::shade(Color& result,
                                   - light_direction;
         double Ks = 1.0;  // temporarily hard coded
         double p = 20.0;  // temporarily hard coded
-        light += light_color * (Ks * 
-                 pow(Dot(light_reflection, -(ray.direction())), p));
+        double cosalpha = Dot(light_reflection, -(ray.direction()));
+        if (cosalpha > 0) {
+            light += light_color * (Ks * pow(cosalpha, p));
+        }
       }
     }
   }
