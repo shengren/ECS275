@@ -73,6 +73,7 @@ class Parser {
   Light *parsePointLight();
   Light *parseLight();
 
+  Material *parsePhongMaterial();
   Material *parseLambertianMaterial();
   Material *parseMaterial();
 

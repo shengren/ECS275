@@ -4,6 +4,7 @@
 #include "ConstantBackground.h"
 #include "PointLight.h"
 #include "LambertianMaterial.h"
+#include "PhongMaterial.h"
 #include "Group.h"
 #include "Plane.h"
 #include "Sphere.h"
@@ -440,10 +441,43 @@ Material *Parser::parseLambertianMaterial()
   return new LambertianMaterial( color, Kd, Ka );
 }
 
+Material *Parser::parsePhongMaterial()
+{
+  Color color( 1.0, 1.0, 1.0 );
+  double Ka = 0.3;
+  double Kd = 0.6;
+  double Ks = 0.4;
+  double p = 10;
+  double Kr = 0.2;
+  if ( peek( Token::left_brace ) )
+    for ( ; ; )
+    {
+      if ( peek( "color" ) )
+        color = parseColor();
+      else if ( peek( "Ka" ) )
+        Ka = parseReal();
+      else if ( peek( "Kd" ) )
+        Kd = parseReal();
+      else if ( peek( "Ks" ) )
+        Ks = parseReal();
+      else if ( peek( "p" ) )
+        p = parseReal();
+      else if ( peek( "Kr" ) )
+        Kr = parseReal();
+      else if ( peek( Token::right_brace ) )
+        break;
+      else
+        throwParseException( "Expected `color', `Ka', `Kd', `Ks', `p', `Kr' or }." );
+    }
+  return new PhongMaterial( color, Ka, Kd, Ks, p, Kr );
+}
+
 Material *Parser::parseMaterial()
 {
     if ( peek( "lambertian" ) )
       return parseLambertianMaterial();
+    else if ( peek( "phong" ) )
+      return parsePhongMaterial();
     else if ( next_token.token_type == Token::string )
     {
         map< string, Material * >::iterator found = defined_materials.find( parseString() );
