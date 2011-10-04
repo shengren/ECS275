@@ -108,16 +108,25 @@ void LambertianMaterial::shade(Color& result,
       HitRecord shadowhit(dist);
       Ray shadowray(hitpos, light_direction);
       world->intersect(shadowhit, context, shadowray);
-      if(!shadowhit.getPrimitive())
+      if (!shadowhit.getPrimitive()) {
         // No shadows...
-        light += light_color*(Kd*cosphi);
+        light += light_color * (Kd * cosphi);  // diffuse
+
+        // specular
+        Vector light_reflection = normal * (2.0 * Dot(light_direction, normal)) 
+                                  - light_direction;
+        double Ks = 1.0;  // temporarily hard coded
+        double p = 20.0;  // temporarily hard coded
+        light += light_color * (Ks * 
+                 pow(Dot(light_reflection, -(ray.direction())), p));
+      }
     }
   }
   result = light*color;
 
     // recursive specular reflection
     // DEBUG:
-    if (depth < 10) {
+    if (depth < 100) {
         // to-do: write a function to compute the specular reflection vector
         // direction
         Vector reflection_direction = 
@@ -137,12 +146,12 @@ void LambertianMaterial::shade(Color& result,
                   reflection_hit, 
                   atten, 
                   depth + 1);
-            result += reflected_color * coefficient;
+            result += (reflected_color * coefficient) * color;
         }
         else {
             Color reflected_color;  // background color
             scene->getBackground()->getBackgroundColor(reflected_color, context, reflection_ray);
-            result += reflected_color * coefficient;
+            result += (reflected_color * coefficient) * color;
         }
     }
 }
