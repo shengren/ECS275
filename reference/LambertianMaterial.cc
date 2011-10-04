@@ -9,6 +9,7 @@
 #include "Scene.h"
 #include "Vector.h"
 #include "Math.h"
+#include "ConstantBackground.h"  // for getting background color
 #include <float.h>  // for using DBL_MAX
 using namespace std;
 
@@ -136,6 +137,11 @@ void LambertianMaterial::shade(Color& result,
                   reflection_hit, 
                   atten, 
                   depth + 1);
+            result += reflected_color * coefficient;
+        }
+        else {
+            Color reflected_color;  // background color
+            scene->getBackground()->getBackgroundColor(reflected_color, context, reflection_ray);
             result += reflected_color * coefficient;
         }
     }
