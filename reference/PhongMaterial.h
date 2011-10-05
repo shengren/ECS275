@@ -16,7 +16,7 @@ class PhongMaterial : public Material {
                        const Ray& ray, 
                        const HitRecord& hit,
                        const Color& atten,
-                       int depth = 1) const;
+                       int depth) const;
 
   private:
     PhongMaterial(const PhongMaterial&);

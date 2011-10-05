@@ -24,14 +24,6 @@ PhongMaterial::~PhongMaterial()
 {
 }
 
-// LSR 11-10-02
-// change it a recursive function guarded by 'depth'
-// max depth = 10, default depth = 1
-// this is a temporary solution.
-// to-do:
-// 1. make a subclass to provide this recursive function
-// 2. update Parser to support parsing 'specular reflection coefficient' of recursive rays
-// 3. cannot set default value to 'depth'
 void PhongMaterial::shade(Color& result, 
                           const RenderContext& context,
                           const Ray& ray, 
@@ -77,10 +69,10 @@ void PhongMaterial::shade(Color& result,
             }
         }
     }
+    result = light * color;
 
     // recursive specular reflection
-    // to-do: remove this hard coded max_depth
-    if (depth < 100) {
+    if (depth < scene->getMaxRayDepth()) {
         Vector reflection_direction = 
           ray.direction() - normal * (2.0 * Dot(ray.direction(), normal));
         HitRecord reflection_hit(DBL_MAX);
@@ -89,20 +81,19 @@ void PhongMaterial::shade(Color& result,
         if (reflection_hit.getPrimitive()) {
             Color reflected_color;
             Color atten;  // place holder
-            shade(reflected_color, 
-                  context, 
-                  reflection_ray, 
-                  reflection_hit, 
-                  atten, 
-                  depth + 1);
-            light += (reflected_color * Kr) * color;
+            // call the hit material's shade NOT the current material's
+            reflection_hit.getMaterial()->shade(reflected_color, 
+                                                context, 
+                                                reflection_ray, 
+                                                reflection_hit, 
+                                                atten, 
+                                                depth + 1);
+            result += reflected_color * Kr;
         }
         else {
             Color reflected_color;  // background color
             scene->getBackground()->getBackgroundColor(reflected_color, context, reflection_ray);
-            light += (reflected_color * Kr) * color;
+            result += reflected_color * Kr;
         }
     }
-
-    result = light * color;
 }
