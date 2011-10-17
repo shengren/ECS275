@@ -2,6 +2,8 @@
 #ifndef PinholeCamera_h
 #define PinholeCamera_h
 
+#include <vector>
+
 #include "Camera.h"
 #include "Point.h"
 #include "Vector.h"
@@ -13,6 +15,10 @@ class PinholeCamera : public Camera {
   
   virtual void preprocess(double aspect_ratio);
   virtual void makeRay(Ray& ray, const RenderContext& context, double x, double y) const;
+  virtual void makeRays(std::vector<Ray>& rays,
+                        const RenderContext& context,
+                        double x,
+                        double y) const;
 
  private:
   PinholeCamera(const PinholeCamera&);

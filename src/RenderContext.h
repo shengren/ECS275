@@ -12,7 +12,8 @@ class RenderContext {
   RenderContext(const Scene* scene)
       : scene(scene),
         antialiasing(false),
-        psresolution(4) {
+        psresolution(4),
+        lsresolution(0) {
     srand48((unsigned int)time(NULL));
   }
   ~RenderContext() {}
@@ -39,6 +40,17 @@ class RenderContext {
     return psresolution;
   }
 
+  void setLensSamplingResolution(const int val) {
+    lsresolution = val;
+    if (lsresolution < 0)
+      lsresolution = 0;
+    if (lsresolution > 8)
+      lsresolution = 16;
+  }
+  const int getLensSamplingResolution() const {
+    return lsresolution;
+  }
+
   const double generateRandomNumber() const {
     return drand48();
   }
@@ -47,6 +59,8 @@ class RenderContext {
   const Scene* scene;
   bool antialiasing;
   int psresolution;
+  int lsresolution;
+
 };
 
 #endif

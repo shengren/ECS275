@@ -5,6 +5,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include <cassert>
+#include <cstdio>
 
 #include "Background.h"
 #include "Camera.h"
@@ -100,6 +101,8 @@ void Scene::render(const RenderContext& context)
 
   if (context.hasAntiAliasing()) {
     Color atten(1.0, 1.0, 1.0);
+    int total = yres * xres;
+    int num_finished = 0;
     for (int j = 0; j < yres; ++j) {
       for (int i = 0; i < xres; ++i) {
         vector<Point2D> pl = sampleInPixel(
@@ -107,21 +110,30 @@ void Scene::render(const RenderContext& context)
             i, j, xres, yres, context);
         Color result(0.0, 0.0, 0.0);
         for (int k = 0; k < pl.size(); ++k) {
-          Ray ray;
-          camera->makeRay(ray, context, pl[k].x, pl[k].y);
-          HitRecord hit(DBL_MAX);
-          object->intersect(hit, context, ray);
-          Color c(0.0, 0.0, 0.0);
-          if (hit.getPrimitive()) {
-            const Material* matl = hit.getMaterial();
-            matl->shade(c, context, ray, hit, atten, 0);
-          } else {
-            background->getBackgroundColor(c, context, ray);
+          //Ray ray;
+          //camera->makeRay(ray, context, pl[k].x, pl[k].y);
+          vector<Ray> rays;
+          camera->makeRays(rays, context, pl[k].x, pl[k].y);
+          Color subpixel_result(0.0, 0.0, 0.0);
+          for (int r = 0; r < rays.size(); ++r) {
+            HitRecord hit(DBL_MAX);
+            object->intersect(hit, context, rays[r]);
+            Color c(0.0, 0.0, 0.0);
+            if (hit.getPrimitive()) {
+              const Material* matl = hit.getMaterial();
+              matl->shade(c, context, rays[r], hit, atten, 0);
+            } else {
+              background->getBackgroundColor(c, context, rays[r]);
+            }
+            subpixel_result += c;
           }
-          result += c;
+          subpixel_result /= (double)rays.size();
+          result += subpixel_result;
         }
         result /= (double)pl.size();
         image->set(i, j, result);
+        if ((++num_finished) % (total / 10) == 0)
+          printf("%d / %d\n", num_finished, total);
       }
     }
   } else {
@@ -130,25 +142,36 @@ void Scene::render(const RenderContext& context)
     double dy = 2./yres;
     double ymin = -1. + dy/2.;
     Color atten(1,1,1);
+    int total = yres * xres;
+    int num_finished = 0;
     for(int i=0;i<yres;i++){
       //cerr << "y=" << i << '\n';
       double y = ymin + i*dy;
       for(int j=0;j<xres;j++){
         double x = xmin + j*dx;
         //cerr << "x=" << j << ", y=" << i << '\n';
-        Ray ray;
-        camera->makeRay(ray, context, x, y);
-        HitRecord hit(DBL_MAX);
-        object->intersect(hit, context, ray);
-        Color result;
-        if(hit.getPrimitive()){
-          // Ray hit something...
-          const Material* matl = hit.getMaterial();
-          matl->shade(result, context, ray, hit, atten, 0);
-        } else {
-          background->getBackgroundColor(result, context, ray);
+        //Ray ray;
+        //camera->makeRay(ray, context, x, y);
+        vector<Ray> rays;
+        camera->makeRays(rays, context, x, y);
+        Color result(0.0, 0.0, 0.0);
+        for (int r = 0; r < rays.size(); ++r) {
+          HitRecord hit(DBL_MAX);
+          object->intersect(hit, context, rays[r]);
+          Color c(0.0, 0.0, 0.0);
+          if(hit.getPrimitive()){
+            // Ray hit something...
+            const Material* matl = hit.getMaterial();
+            matl->shade(c, context, rays[r], hit, atten, 0);
+          } else {
+            background->getBackgroundColor(c, context, rays[r]);
+          }
+          result += c;
         }
+        result /= (double)rays.size();
         image->set(j, i, result);
+        if ((++num_finished) % (total / 10) == 0)
+          printf("%d / %d\n", num_finished, total);
       }
     }
   }

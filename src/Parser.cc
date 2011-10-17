@@ -1,5 +1,6 @@
 
 #include "Parser.h"
+#include "ThinLensCamera.h"
 #include "PinholeCamera.h"
 #include "ConstantBackground.h"
 #include "PointLight.h"
@@ -335,6 +336,37 @@ Color const Parser::parseColor()
   return Color( v, v, v );
 }
 
+Camera *Parser::parseThinLensCamera()
+{
+  Point center(0.0, 0.0, 0.0);
+  Point shoot_at(0.0, 1.0, 0.0);
+  Vector up(0.0, 0.0, 1.0);
+  double hfov = 90.0;
+  double aperture = 0.3;
+  double focal_dist = 1.0;
+  if ( peek( Token::left_brace ) )
+    for ( ; ; )
+    {
+      if ( peek( "center" ) )
+        center = parsePoint();
+      else if ( peek( "shoot_at" ) )
+        shoot_at = parsePoint();
+      else if ( peek( "up" ) )
+        up = parseVector();
+      else if ( peek( "hfov" ) )
+        hfov = parseReal();
+      else if ( peek( "aperture" ) )
+        aperture = parseReal();
+      else if ( peek( "focal_dist" ) )
+        focal_dist = parseReal();
+      else if ( peek( Token::right_brace ) )
+        break;
+      else
+        throwParseException("Expected `center', `shoot_at', `up', `hfov', `aperture', `focal_dist', or }.");
+    }
+  return new ThinLensCamera(center, shoot_at, up, hfov, aperture, focal_dist);
+}
+
 Camera *Parser::parsePinholeCamera()
 {
   Point eye( 0.0, 0.0, 0.0 );
@@ -363,7 +395,9 @@ Camera *Parser::parsePinholeCamera()
 Camera *Parser::parseCamera()
 {
     if ( peek( "pinhole" ) )
-        return parsePinholeCamera();
+      return parsePinholeCamera();
+    if ( peek( "thinlens" ) )
+      return parseThinLensCamera();
     throwParseException( "Expected a camera type." );
     return 0;
 }

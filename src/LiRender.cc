@@ -47,6 +47,8 @@ int main(int argc, char** argv)
   double t2 = Time::currentSeconds();
   RenderContext context(scene);
   context.setAntiAliasing(true);
+  context.setPixelSamplingResolution(4);
+  context.setLensSamplingResolution(4);
   scene->render(context);
 
   double t3 = Time::currentSeconds();

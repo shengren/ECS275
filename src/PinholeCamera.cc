@@ -34,3 +34,13 @@ void PinholeCamera::makeRay(Ray& ray, const RenderContext& context, double x, do
   direction.normalize();
   ray = Ray(eye, direction);
 }
+
+void PinholeCamera::makeRays(std::vector<Ray>& rays,
+                             const RenderContext& context,
+                             double x,
+                             double y) const {
+  Ray ray;
+  makeRay(ray, context, x, y);
+  rays.clear();
+  rays.push_back(ray);
+}
