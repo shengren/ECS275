@@ -15,6 +15,7 @@ class Light;
 class Material;
 class Object;
 class Scene;
+class Group;
 
 class Parser {
 
@@ -78,10 +79,14 @@ class Parser {
   Material *parseLambertianMaterial();
   Material *parseMaterial();
 
+  Object *parseOffObject();
   Object *parseGroupObject();
   Object *parsePlaneObject();
   Object *parseSphereObject();
   Object *parseObject();
+
+  Group *parseOffFile(std::string filename, Material *material,
+                      Vector direction, double speed);
 
   public:
 

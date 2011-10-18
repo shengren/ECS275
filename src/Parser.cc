@@ -9,6 +9,7 @@
 #include "Group.h"
 #include "Plane.h"
 #include "Sphere.h"
+#include "Polygon.h"
 #include "Scene.h"
 #include "Image.h"
 #include <cmath>
@@ -17,6 +18,8 @@
 #include <sstream>
 #include <string>
 #include <cstdlib>
+#include <cstdio>
+
 using namespace std;
 
 void Parser::throwParseException(
@@ -522,6 +525,32 @@ Material *Parser::parseMaterial()
     return 0;
 }
 
+Object *Parser::parseOffObject()
+{
+  Material *material = default_material;
+  Vector direction( 0.0, 0.0, 0.0 );
+  double speed = 0.0;
+  string filename = "";
+  if ( peek( Token::left_brace ) )
+    for ( ; ; )
+    {
+      if ( peek( "material" ) )
+        material = parseMaterial();
+      else if ( peek( "filename" ) )
+        filename = parseString();
+      else if ( peek( "direction" ) )
+        direction = parseVector();
+      else if ( peek( "speed" ) )
+        speed = parseReal();
+      else if ( peek( Token::right_brace ) )
+        break;
+      else
+        throwParseException( "Expected `material', `filename', `direction', "
+                             "`speed' or }." );
+    }
+  return parseOffFile(filename, material, direction, speed);
+}
+
 Object *Parser::parseGroupObject()
 {
     Group *group = new Group();
@@ -590,6 +619,8 @@ Object *Parser::parseObject()
         return parsePlaneObject();
     else if ( peek( "sphere" ) )
         return parseSphereObject();
+    else if ( peek( "off" ) )
+        return parseOffObject();
     else if ( next_token.token_type == Token::string )
     {
         map< string, Object * >::iterator found = defined_objects.find( parseString() );
@@ -665,4 +696,37 @@ Scene *Parser::parseScene(
   }
   scene->setImage( new Image( xres, yres ) );
   return scene;
+}
+
+Group *Parser::parseOffFile(std::string filename, Material *material,
+                            Vector direction, double speed) {
+  filename += ".off";
+  FILE *file = fopen(filename.c_str(), "r");
+  if (file == NULL) {
+    throwParseException( "Error opening file" );
+    return NULL;
+  }
+  char s[8];
+  int nv, nf, ne;
+  fscanf(file, "%s %d %d %d", s, &nv, &nf, &ne);
+  vector<Point> vertices;
+  for (int i = 0; i < nv; ++i) {
+    double x, y, z;
+    fscanf(file, "%lf %lf %lf", &x, &y, &z);
+    vertices.push_back(Point(x, y, z));
+  }
+  Group *group = new Group();
+  for (int i = 0; i < nf; ++i) {
+    int np;
+    vector<Point> point_list;
+    fscanf(file, "%d", &np);
+    for (int j = 0; j < np; ++j) {
+      int vidx;
+      fscanf(file, "%d", &vidx);
+      point_list.push_back(vertices[vidx]);
+    }
+    group->addObject(new Polygon(material, point_list, direction, speed));
+  }
+  fclose(file);
+  return group;
 }
