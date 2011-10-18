@@ -621,6 +621,10 @@ Scene *Parser::parseScene(
       scene->setMaxRayDepth( parseInteger() );
     else if ( peek( "minattenuation" ) )
       scene->setMinAttenuation( parseReal() );
+    else if ( peek( "pixelsamplingfrequency") )
+      scene->setPixelSamplingFrequency( parseInteger() );
+    else if ( peek( "lenssamplingfrequency" ) )
+      scene->setLensSamplingFrequency( parseInteger() );
     else if ( peek( "camera" ) )
       scene->setCamera( parseCamera() );
     else if ( peek( "background" ) )
@@ -645,6 +649,7 @@ Scene *Parser::parseScene(
         break;
     else
         throwParseException( "Expected `filename', `xres', `yres', `maxraydepth', `minattenuation', "
+                             "`pixelsamplingfrequency', `lenssamplingfrequency', "
                              "`camera', `background', `ambient', `light', `scene', or `define'." );
   }
   scene->setImage( new Image( xres, yres ) );

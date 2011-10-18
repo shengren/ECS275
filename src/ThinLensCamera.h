@@ -9,12 +9,12 @@
 
 class ThinLensCamera : public Camera {
  public:
-  ThinLensCamera(const Point& _center,
-                 const Point& _shoot_at,
-                 const Vector& _up,
-                 double _hfov,
-                 double _aperture,
-                 double _focal_dist);
+  ThinLensCamera(const Point& center,
+                 const Point& shoot_at,
+                 const Vector& up,
+                 double hfov,
+                 double aperture,
+                 double focal_dist);
   virtual ~ThinLensCamera();
 
   virtual void preprocess(double aspect_ratio);
@@ -25,7 +25,7 @@ class ThinLensCamera : public Camera {
   virtual void makeRay(Ray& ray,
                        const RenderContext& context,
                        double x,
-                       double y) const;
+                       double y) const;  // deprecated
 
  private:
   ThinLensCamera(const ThinLensCamera&);
@@ -37,9 +37,9 @@ class ThinLensCamera : public Camera {
   double hfov;
   double aperture;
   double focal_dist;
+  Vector shoot_dir;
   Vector u;
   Vector v;
-  Vector shoot_dir;
   Vector lens_u;
   Vector lens_v;
 

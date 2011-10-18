@@ -76,17 +76,37 @@ class Scene {
     minAttenuation = atten;
   }
 
+  void setPixelSamplingFrequency(const int val) {
+    psfreq = val;
+    if (psfreq < 1)
+      psfreq = 1;
+    if (psfreq > 8)
+      psfreq = 8;
+  }
+  const int getPixelSamplingFrequency() const {
+    return psfreq;
+  }
+
+  void setLensSamplingFrequency(const int val) {
+    lsfreq = val;
+    if (lsfreq < 0)
+      lsfreq = 0;
+    if (lsfreq > 8)
+      lsfreq = 8;
+  }
+  const int getLensSamplingFrequency() const {
+    return lsfreq;
+  }
+
   void preprocess();
   void render();
-  void render(const RenderContext& context);
   double traceRay(Color& result, const RenderContext& context, const Ray& ray, const Color& attenuation, int depth) const;
   double traceRay(Color& result, const RenderContext& context, const Object* obj, const Ray& ray, const Color& attenuation, int depth) const;
 
  private:
   Scene(const Scene&);
   Scene& operator=(const Scene&);
-  std::vector<Point2D> sampleInPixel(const int n,
-                                     const int x,
+  std::vector<Point2D> sampleInPixel(const int x,
                                      const int y,
                                      const int xres,
                                      const int yres,
@@ -100,6 +120,8 @@ class Scene {
   std::vector<Light*> lights;
   int maxRayDepth;
   double minAttenuation;
+  int psfreq;
+  int lsfreq;
 
 };
 
@@ -107,7 +129,7 @@ struct Point2D {
   double x;
   double y;
   Point2D() : x(0.0), y(0.0) {}
-  Point2D(double _x, double _y) : x(_x), y(_y) {}
+  Point2D(double x, double y) : x(x), y(y) {}
 };
 
 #endif

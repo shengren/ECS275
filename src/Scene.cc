@@ -27,6 +27,8 @@ Scene::Scene()
   ambient = Color(0, 0, 0);
   image = 0;
   minAttenuation = 0;
+  psfreq = 0;  // to-do: use initialization list?
+  lsfreq = 0;
 }
 
 Scene::~Scene()
@@ -53,6 +55,7 @@ void Scene::preprocess()
   object->preprocess();
 }
 
+/*
 void Scene::render()
 {
   if(!object || !background || !camera || !image){
@@ -89,8 +92,9 @@ void Scene::render()
     }
   }
 }
+*/
 
-void Scene::render(const RenderContext& context)
+void Scene::render()
 {
   if(!object || !background || !camera || !image){
     cerr << "Incomplete scene, cannot render!\n";
@@ -99,80 +103,34 @@ void Scene::render(const RenderContext& context)
   int xres = image->getXresolution();
   int yres = image->getYresolution();
 
-  if (context.hasAntiAliasing()) {
-    Color atten(1.0, 1.0, 1.0);
-    int total = yres * xres;
-    int num_finished = 0;
-    for (int j = 0; j < yres; ++j) {
-      for (int i = 0; i < xres; ++i) {
-        vector<Point2D> pl = sampleInPixel(
-            context.getPixelSamplingResolution(),
-            i, j, xres, yres, context);
-        Color result(0.0, 0.0, 0.0);
-        for (int k = 0; k < pl.size(); ++k) {
-          //Ray ray;
-          //camera->makeRay(ray, context, pl[k].x, pl[k].y);
-          vector<Ray> rays;
-          camera->makeRays(rays, context, pl[k].x, pl[k].y);
-          Color subpixel_result(0.0, 0.0, 0.0);
-          for (int r = 0; r < rays.size(); ++r) {
-            HitRecord hit(DBL_MAX);
-            object->intersect(hit, context, rays[r]);
-            Color c(0.0, 0.0, 0.0);
-            if (hit.getPrimitive()) {
-              const Material* matl = hit.getMaterial();
-              matl->shade(c, context, rays[r], hit, atten, 0);
-            } else {
-              background->getBackgroundColor(c, context, rays[r]);
-            }
-            subpixel_result += c;
-          }
-          subpixel_result /= (double)rays.size();
-          result += subpixel_result;
-        }
-        result /= (double)pl.size();
-        image->set(i, j, result);
-        if ((++num_finished) % (total / 10) == 0)
-          printf("%d / %d\n", num_finished, total);
-      }
-    }
-  } else {
-    double dx = 2./xres;
-    double xmin = -1. + dx/2.;
-    double dy = 2./yres;
-    double ymin = -1. + dy/2.;
-    Color atten(1,1,1);
-    int total = yres * xres;
-    int num_finished = 0;
-    for(int i=0;i<yres;i++){
-      //cerr << "y=" << i << '\n';
-      double y = ymin + i*dy;
-      for(int j=0;j<xres;j++){
-        double x = xmin + j*dx;
-        //cerr << "x=" << j << ", y=" << i << '\n';
-        //Ray ray;
-        //camera->makeRay(ray, context, x, y);
+  RenderContext context(this);
+  Color atten(1.0, 1.0, 1.0);  // to-do: let user assign this?
+
+  for (int j = 0; j < yres; ++j) {
+    for (int i = 0; i < xres; ++i) {
+      Color result(0.0, 0.0, 0.0);
+      vector<Point2D> pl = sampleInPixel(i, j, xres, yres, context);
+      for (int k = 0; k < pl.size(); ++k) {
         vector<Ray> rays;
-        camera->makeRays(rays, context, x, y);
-        Color result(0.0, 0.0, 0.0);
+        camera->makeRays(rays, context, pl[k].x, pl[k].y);
+        Color spresult(0.0, 0.0, 0.0);
         for (int r = 0; r < rays.size(); ++r) {
           HitRecord hit(DBL_MAX);
           object->intersect(hit, context, rays[r]);
           Color c(0.0, 0.0, 0.0);
-          if(hit.getPrimitive()){
-            // Ray hit something...
+          if (hit.getPrimitive()) {
             const Material* matl = hit.getMaterial();
             matl->shade(c, context, rays[r], hit, atten, 0);
           } else {
             background->getBackgroundColor(c, context, rays[r]);
           }
-          result += c;
+          spresult += c;
         }
-        result /= (double)rays.size();
-        image->set(j, i, result);
-        if ((++num_finished) % (total / 10) == 0)
-          printf("%d / %d\n", num_finished, total);
+        spresult /= (double)rays.size();
+        result += spresult;
       }
+      result /= (double)pl.size();
+      image->set(i, j, result);
     }
   }
 }
@@ -217,22 +175,28 @@ double Scene::traceRay(Color& result, const RenderContext& context, const Object
   }
 }
 
-vector<Point2D> Scene::sampleInPixel(const int n,
-                                     const int x,
+vector<Point2D> Scene::sampleInPixel(const int x,
                                      const int y,
                                      const int xres,
                                      const int yres,
                                      const RenderContext& context) {
   vector<Point2D> ret;
-  assert(n > 0);
-  for (int i = 0; i < n; ++i) {
-    for (int j = 0; j < n; ++j) {
-      double sx = x + (i + context.generateRandomNumber()) / n;
+
+  double sx = (x + 0.5) * 2.0 / xres - 1.0;
+  double sy = (y + 0.5) * 2.0 / yres - 1.0;
+  ret.push_back(Point2D(sx, sy));
+
+  // sampling
+  const int freq = psfreq;
+  for (int i = 0; i < freq; ++i) {
+    for (int j = 0; j < freq; ++j) {
+      double sx = x + (i + context.generateRandomNumber()) / freq;
       sx = sx * 2.0 / xres - 1.0;
-      double sy = y + (j + context.generateRandomNumber()) / n;
+      double sy = y + (j + context.generateRandomNumber()) / freq;
       sy = sy * 2.0 / yres - 1.0;
       ret.push_back(Point2D(sx, sy));
     }
   }
+
   return ret;
 }

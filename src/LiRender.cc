@@ -45,11 +45,7 @@ int main(int argc, char** argv)
   scene->preprocess();
 
   double t2 = Time::currentSeconds();
-  RenderContext context(scene);
-  context.setAntiAliasing(true);
-  context.setPixelSamplingResolution(4);
-  context.setLensSamplingResolution(4);
-  scene->render(context);
+  scene->render();
 
   double t3 = Time::currentSeconds();
   scene->getImage()->write(filename);

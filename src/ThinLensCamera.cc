@@ -10,18 +10,18 @@
 
 using namespace std;
 
-ThinLensCamera::ThinLensCamera(const Point& _center,
-                               const Point& _shoot_at,
-                               const Vector& _up,
-                               double _hfov,
-                               double _aperture,
-                               double _focal_dist)
-    : center(_center),
-      shoot_at(_shoot_at),
-      up(_up),
-      hfov(_hfov),
-      aperture(_aperture),
-      focal_dist(_focal_dist) {
+ThinLensCamera::ThinLensCamera(const Point& center,
+                               const Point& shoot_at,
+                               const Vector& up,
+                               double hfov,
+                               double aperture,
+                               double focal_dist)
+    : center(center),
+      shoot_at(shoot_at),
+      up(up),
+      hfov(hfov),
+      aperture(aperture),
+      focal_dist(focal_dist) {
 }
 
 ThinLensCamera::~ThinLensCamera() {
@@ -47,36 +47,35 @@ void ThinLensCamera::makeRays(vector<Ray>& rays,
                               double x,
                               double y) const {
   rays.clear();
-  Vector offset = u * x + v * y;
 
-  //Vector direction = shoot_dir + offset;
-  Vector direction = (center + shoot_dir * focal_dist + u * x + v * y) - center;
+  Point target = center + shoot_dir * focal_dist + u * x + v * y;
+  Vector direction = target - center;
   direction.normalize();
   rays.push_back(Ray(center, direction));
 
   // sampling
-  const int res = context.getLensSamplingResolution();
-  if (res > 0 && aperture > 0.0) {
+  const int freq = (context.getScene())->getLensSamplingFrequency();
+  const double d_a = 2.0 * M_PI / freq;
+  const double d_rr = aperture * aperture / freq;
+  if (freq > 0 && aperture > 0.0) {
     double s_a = 0.0;
-    for (int i = 0; i < res; ++i) {
+    for (int i = 0; i < freq; ++i) {
       double s_rr = 0.0;
-      for (int j = 0; j < res; ++j) {
-        double a = s_a + 2.0 * M_PI / res * context.generateRandomNumber();
-        double r = sqrt(s_rr + aperture * aperture / res *
-                        context.generateRandomNumber());
-
+      for (int j = 0; j < freq; ++j) {
+        double a = s_a + d_a * context.generateRandomNumber();
+        double r = sqrt(s_rr + d_rr * context.generateRandomNumber());
         Point sample = center + lens_u * r * cos(a) + lens_v * r * sin(a);
-        Vector direction = (center + shoot_dir * focal_dist + u * x + v * y) - sample;
+        Vector direction = target - sample;
         direction.normalize();
         rays.push_back(Ray(sample, direction));
-
-        s_rr += aperture * aperture / res;
+        s_rr += aperture * aperture / freq;
       }
-      s_a += 2.0 * M_PI / res;
+      s_a += 2.0 * M_PI / freq;
     }
   }
 }
 
+// deprecated
 void ThinLensCamera::makeRay(Ray& ray,
                              const RenderContext& context,
                              double x,
