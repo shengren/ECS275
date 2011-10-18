@@ -362,7 +362,7 @@ Camera *Parser::parseThinLensCamera()
       else if ( peek( Token::right_brace ) )
         break;
       else
-        throwParseException("Expected `center', `shoot_at', `up', `hfov', `aperture', `focal_dist', or }.");
+        throwParseException("Expected `center', `shoot_at', `up', `hfov', `aperture', `focal_dist' or }.");
     }
   return new ThinLensCamera(center, shoot_at, up, hfov, aperture, focal_dist);
 }
@@ -558,6 +558,8 @@ Object *Parser::parseSphereObject()
   Material *material = default_material;
   Point center( 0.0, 0.0, 0.0 );
   double radius = 0.5;
+  Vector direction( 0.0, 0.0, 0.0 );  // to-do: set default values in function signature
+  double speed = 0.0;
   if ( peek( Token::left_brace ) )
     for ( ; ; )
     {
@@ -567,12 +569,17 @@ Object *Parser::parseSphereObject()
         center = parsePoint();
       else if ( peek( "radius" ) )
         radius = parseReal();
+      else if ( peek( "direction" ) )
+        direction = parseVector();
+      else if ( peek( "speed" ) )
+        speed = parseReal();
       else if ( peek( Token::right_brace ) )
         break;
       else
-        throwParseException( "Expected `material', `center', `radius' or }." );
+        throwParseException( "Expected `material', `center', `radius', "
+                             "`direction', `speed' or }." );
     }
-  return new Sphere( material, center, radius );
+  return new Sphere( material, center, radius, direction, speed );
 }
 
 Object *Parser::parseObject()
@@ -625,6 +632,10 @@ Scene *Parser::parseScene(
       scene->setPixelSamplingFrequency( parseInteger() );
     else if ( peek( "lenssamplingfrequency" ) )
       scene->setLensSamplingFrequency( parseInteger() );
+    else if ( peek( "timesamplingfrequency" ) )
+      scene->setTimeSamplingFrequency( parseInteger() );
+    else if ( peek( "shutter" ) )
+      scene->setShutter( parseReal() );
     else if ( peek( "camera" ) )
       scene->setCamera( parseCamera() );
     else if ( peek( "background" ) )

@@ -14,6 +14,7 @@ class Group : public Object {
   virtual void preprocess();
   virtual void getBounds(BoundingBox& bbox) const;
   virtual void intersect(HitRecord& hit, const RenderContext& context, const Ray& ray) const;
+  virtual void move(double dt);
 
  protected:
   std::vector<Object*> objects;

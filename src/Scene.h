@@ -78,8 +78,8 @@ class Scene {
 
   void setPixelSamplingFrequency(const int val) {
     psfreq = val;
-    if (psfreq < 1)
-      psfreq = 1;
+    if (psfreq < 0)
+      psfreq = 0;
     if (psfreq > 8)
       psfreq = 8;
   }
@@ -98,6 +98,26 @@ class Scene {
     return lsfreq;
   }
 
+  void setTimeSamplingFrequency(const int val) {
+    tsfreq = val;
+    if (tsfreq < 0)
+      tsfreq = 0;
+    if (tsfreq > 32)
+      tsfreq = 32;
+  }
+  const int getTimeSamplingFrequency() {
+    return tsfreq;
+  }
+
+  void setShutter(const double val) {
+    shutter = val;
+    if (shutter < 0.0)
+      shutter = 0.0;
+  }
+  const double getShutter() const {
+    return shutter;
+  }
+
   void preprocess();
   void render();
   double traceRay(Color& result, const RenderContext& context, const Ray& ray, const Color& attenuation, int depth) const;
@@ -111,6 +131,7 @@ class Scene {
                                      const int xres,
                                      const int yres,
                                      const RenderContext& context);
+  std::vector<double> sampleOnTime(const RenderContext& context);
 
   Background* background;
   Camera* camera;
@@ -122,6 +143,9 @@ class Scene {
   double minAttenuation;
   int psfreq;
   int lsfreq;
+  int tsfreq;
+  double shutter;
+  std::vector<std::vector<Color> > buffer;
 
 };
 

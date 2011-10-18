@@ -13,6 +13,17 @@ Sphere::Sphere(Material* material, const Point& center, double radius)
   inv_radius = 1./radius;
 }
 
+Sphere::Sphere(Material* material, const Point& center, double radius,
+               Vector direction, double speed)
+    : Primitive(material),
+      center(center),
+      radius(radius),
+      direction(direction),
+      speed(speed)
+{
+  inv_radius = 1./radius;
+}
+
 Sphere::~Sphere()
 {
 }
@@ -45,4 +56,9 @@ void Sphere::normal(Vector& normal, const RenderContext&, const Point& hitpos,
                     const Ray& ray, const HitRecord& hit) const
 {
   normal = (hitpos-center)*inv_radius;
+}
+
+void Sphere::move(double dt)
+{
+  center = center + direction * speed * dt;
 }

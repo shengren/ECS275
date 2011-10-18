@@ -39,3 +39,10 @@ void Group::intersect(HitRecord& hit, const RenderContext& context, const Ray& r
   while (begin != end)
     (*begin++)->intersect(hit, context, ray);
 }
+
+void Group::move(double dt) {
+  Object*const* begin = &objects[0];
+  Object*const* end = &objects[0]+objects.size();
+  while (begin != end)
+    (*begin++)->move(dt);
+}
