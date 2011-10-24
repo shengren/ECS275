@@ -64,26 +64,29 @@ void Scene::render()
   int xres = image->getXresolution();
   int yres = image->getYresolution();
 
+  /*
   buffer.resize(yres);
   for (int i = 0; i < xres; ++i)
     buffer[i].resize(yres);
+  */
 
   RenderContext context(this);
   Color atten(1.0, 1.0, 1.0);  // to-do: let user assign this?
+  double total_per_pixel = max(1, psfreq * psfreq) *
+                           max(1, lsfreq * lsfreq) *
+                           max(1, tsfreq);
 
-  vector<double> tl = sampleOnTime(context);
-
-  for (int t = 1; t < tl.size(); ++t) {
-    object->move(tl[t] - tl[t - 1]);  // at least 2 samples in 'tl' (0.0 and 0.0)
-    for (int j = 0; j < yres; ++j) {
-      for (int i = 0; i < xres; ++i) {
-        Color result(0.0, 0.0, 0.0);
-        vector<Point2D> pl = sampleInPixel(i, j, xres, yres, context);
-        for (int k = 0; k < pl.size(); ++k) {
-          vector<Ray> rays;
-          camera->makeRays(rays, context, pl[k].x, pl[k].y);
-          Color spresult(0.0, 0.0, 0.0);
-          for (int r = 0; r < rays.size(); ++r) {
+  for (int j = 0; j < yres; ++j) {
+    for (int i = 0; i < xres; ++i) {
+      Color buffer(0.0, 0.0, 0.0);
+      vector<Point2D> pl = sampleInPixel(i, j, xres, yres, context);  // anti-aliasing
+      for (int k = 0; k < pl.size(); ++k) {
+        vector<Ray> rays;
+        camera->makeRays(rays, context, pl[k].x, pl[k].y);  // depth of field
+        for (int r = 0; r < rays.size(); ++r) {
+          vector<double> tl = sampleOnTime(context);  // motion blur
+          for (int t = 0; t < tl.size(); ++t) {
+            object->move(tl[t]);
             HitRecord hit(DBL_MAX);
             object->intersect(hit, context, rays[r]);
             Color c(0.0, 0.0, 0.0);
@@ -93,24 +96,23 @@ void Scene::render()
             } else {
               background->getBackgroundColor(c, context, rays[r]);
             }
-            spresult += c;
+            buffer += c;
           }
-          spresult /= (double)rays.size();
-          result += spresult;
         }
-        result /= (double)pl.size();
-        //image->set(i, j, result);
-        buffer[i][j] += result;
+      }
+      image->set(i, j, buffer / total_per_pixel);
+
+      // progress bar
+      int pre = -1;
+      int done = (j * xres + i + 1) * 100 / (yres * xres);
+      if (pre != done) {
+        printf("\r%3d%% pixels have been rendered", done);
+        fflush(stdout);
+        pre = done;
       }
     }
   }
-
-  for (int i = 0; i < xres; ++i) {
-    for (int j = 0; j < yres; ++j) {
-      buffer[i][j] /= (double)(tl.size() - 1);  // to-do: count and divide only one time
-      image->set(i, j, buffer[i][j]);
-    }
-  }
+  printf("\n");  // start a new line after progress bar
 }
 
 double Scene::traceRay(Color& result, const RenderContext& context, const Ray& ray, const Color& atten, int depth) const
@@ -162,7 +164,6 @@ vector<Point2D> Scene::sampleInPixel(const int x,
 
   double sx = (x + 0.5) * 2.0 / xres - 1.0;
   double sy = (y + 0.5) * 2.0 / yres - 1.0;
-  ret.push_back(Point2D(sx, sy));
 
   // sampling
   const int freq = psfreq;
@@ -176,14 +177,14 @@ vector<Point2D> Scene::sampleInPixel(const int x,
     }
   }
 
+  if (ret.empty())  // anti-aliasing is disabled
+    ret.push_back(Point2D(sx, sy));
+
   return ret;
 }
 
 vector<double> Scene::sampleOnTime(const RenderContext& context) {
   vector<double> ret;
-
-  ret.push_back(0.0);
-  ret.push_back(0.0);
 
   // sampling
   const int freq = tsfreq;
@@ -192,6 +193,8 @@ vector<double> Scene::sampleOnTime(const RenderContext& context) {
       double st = shutter * (i + context.generateRandomNumber()) / freq;
       ret.push_back(st);
     }
+  } else {
+    ret.push_back(0.0);  // motion blur is disabled
   }
 
   return ret;

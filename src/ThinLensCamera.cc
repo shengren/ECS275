@@ -51,7 +51,6 @@ void ThinLensCamera::makeRays(vector<Ray>& rays,
   Point target = center + shoot_dir * focal_dist + u * x + v * y;
   Vector direction = target - center;
   direction.normalize();
-  rays.push_back(Ray(center, direction));
 
   // sampling
   const int freq = (context.getScene())->getLensSamplingFrequency();
@@ -73,6 +72,9 @@ void ThinLensCamera::makeRays(vector<Ray>& rays,
       s_a += 2.0 * M_PI / freq;
     }
   }
+
+  if (rays.empty())  // depth of field is disabled
+    rays.push_back(Ray(center, direction));
 }
 
 // deprecated

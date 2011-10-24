@@ -8,7 +8,7 @@
 #include <math.h>
 
 Sphere::Sphere(Material* material, const Point& center, double radius)
-  : Primitive(material), center(center), radius(radius)
+  : Primitive(material), initial_center(center), center(center), radius(radius)
 {
   inv_radius = 1./radius;
 }
@@ -16,6 +16,7 @@ Sphere::Sphere(Material* material, const Point& center, double radius)
 Sphere::Sphere(Material* material, const Point& center, double radius,
                Vector direction, double speed)
     : Primitive(material),
+      initial_center(center),
       center(center),
       radius(radius),
       direction(direction),
@@ -60,5 +61,5 @@ void Sphere::normal(Vector& normal, const RenderContext&, const Point& hitpos,
 
 void Sphere::move(double dt)
 {
-  center = center + direction * speed * dt;
+  center = initial_center + direction * speed * dt;
 }

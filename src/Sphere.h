@@ -21,6 +21,7 @@ class Sphere : public Primitive {
   virtual void move(double dt);
 
  protected:
+  Point initial_center;
   Point center;
   double radius;
   double inv_radius;

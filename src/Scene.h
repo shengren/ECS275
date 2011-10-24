@@ -145,7 +145,7 @@ class Scene {
   int lsfreq;
   int tsfreq;
   double shutter;
-  std::vector<std::vector<Color> > buffer;
+  //std::vector<std::vector<Color> > buffer;
 
 };
 
