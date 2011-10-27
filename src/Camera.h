@@ -6,6 +6,7 @@
 
 class Ray;
 class RenderContext;
+class Point2D;
 
 class Camera {
  public:
@@ -16,6 +17,8 @@ class Camera {
   virtual void makeRay(Ray& ray, const RenderContext& context, double x, double y) const = 0;
   virtual void makeRays(std::vector<Ray>& rays, const RenderContext& context,
                         double x, double y) const = 0;
+  virtual void makeRays(std::vector<Ray>& rays, const RenderContext& context,
+                        std::vector<Point2D> subpixels) const = 0;
 
  private:
   Camera(const Camera&);

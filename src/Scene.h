@@ -109,6 +109,17 @@ class Scene {
     return tsfreq;
   }
 
+  void setSamplingFrequency(const int val) {
+    sfreq = val;
+    if (sfreq < 0)
+      sfreq = 0;
+    if (sfreq > 32)
+      sfreq = 32;
+  }
+  const int getSamplingFrequency() {
+    return sfreq;
+  }
+
   void setShutter(const double val) {
     shutter = val;
     if (shutter < 0.0)
@@ -120,6 +131,7 @@ class Scene {
 
   void preprocess();
   void render();
+  void renderFast();
   double traceRay(Color& result, const RenderContext& context, const Ray& ray, const Color& attenuation, int depth) const;
   double traceRay(Color& result, const RenderContext& context, const Object* obj, const Ray& ray, const Color& attenuation, int depth) const;
 
@@ -144,7 +156,8 @@ class Scene {
   int psfreq;
   int lsfreq;
   int tsfreq;
-  double shutter;
+  int sfreq;  // used in permutation based distributed ray tracing
+  double shutter;  // to-do: a camera parameter?
   //std::vector<std::vector<Color> > buffer;
 
 };

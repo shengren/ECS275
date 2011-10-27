@@ -3,6 +3,7 @@
 #include <cmath>
 #include <vector>
 #include <cstdio>
+#include <algorithm>
 
 #include "Ray.h"
 #include "Math.h"
@@ -75,6 +76,50 @@ void ThinLensCamera::makeRays(vector<Ray>& rays,
 
   if (rays.empty())  // depth of field is disabled
     rays.push_back(Ray(center, direction));
+}
+
+void ThinLensCamera::makeRays(vector<Ray>& rays,
+                              const RenderContext& context,
+                              const vector<Point2D> subpixels) const {
+  rays.clear();
+
+  vector<Point> samples;
+  // sampling
+  const int freq = (context.getScene())->getLensSamplingFrequency();
+  const double d_a = 2.0 * M_PI / freq;
+  const double d_rr = aperture * aperture / freq;
+  if (freq > 0 && aperture > 0.0) {
+    double s_a = 0.0;
+    for (int i = 0; i < freq; ++i) {
+      double s_rr = 0.0;
+      for (int j = 0; j < freq; ++j) {
+        double a = s_a + d_a * context.generateRandomNumber();
+        double r = sqrt(s_rr + d_rr * context.generateRandomNumber());
+        Point s = center + lens_u * r * cos(a) + lens_v * r * sin(a);
+        samples.push_back(s);
+        s_rr += aperture * aperture / freq;
+      }
+      s_a += 2.0 * M_PI / freq;
+    }
+  }
+
+  if (samples.empty())  // depth of field is disabled
+    samples.push_back(center);
+
+  if (samples.size() == 1 && subpixels.size() > 1) {  // expand to match subpixels by copying
+    while (samples.size() < subpixels.size())
+      samples.push_back(samples[0]);
+  } else {
+    random_shuffle(samples.begin(), samples.end());
+  }
+
+  for (int i = 0; i < samples.size(); ++i) {
+    Point target = center + shoot_dir * focal_dist +
+                   u * subpixels[i].x + v * subpixels[i].y;
+    Vector direction = target - samples[i];
+    direction.normalize();
+    rays.push_back(Ray(samples[i], direction));
+  }
 }
 
 // deprecated

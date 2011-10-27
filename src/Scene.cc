@@ -3,6 +3,7 @@
 
 #include <float.h>
 #include <iostream>
+#include <algorithm>
 #include <stdlib.h>
 #include <cassert>
 #include <cstdio>
@@ -29,6 +30,8 @@ Scene::Scene()
   minAttenuation = 0;
   psfreq = 0;  // to-do: use initialization list?
   lsfreq = 0;
+  tsfreq = 0;
+  sfreq = 0;
 }
 
 Scene::~Scene()
@@ -100,6 +103,87 @@ void Scene::render()
           }
         }
       }
+      image->set(i, j, buffer / total_per_pixel);
+
+      // progress bar
+      int pre = -1;
+      int done = (j * xres + i + 1) * 100 / (yres * xres);
+      if (pre != done) {
+        printf("\r%3d%% pixels have been rendered", done);
+        fflush(stdout);
+        pre = done;
+      }
+    }
+  }
+  printf("\n");  // start a new line after progress bar
+}
+
+void Scene::renderFast()
+{
+  if (sfreq <= 0) {  // used as a switch for permutation based distributed ray tracing
+    render();
+    return;
+  }
+
+  if(!object || !background || !camera || !image){
+    cerr << "Incomplete scene, cannot render!\n";
+    exit(1);
+  }
+  int xres = image->getXresolution();
+  int yres = image->getYresolution();
+
+  RenderContext context(this);
+  Color atten(1.0, 1.0, 1.0);  // to-do: let user assign this?
+  double total_per_pixel = sfreq * sfreq;
+  if (psfreq <= 1 && lsfreq <= 1 && tsfreq <= 1)  // all features are disabled
+    total_per_pixel = 1.0;
+
+  // to-do: need these?
+  // 0 or 1 means that the feature is disabled
+  // 0: one default sample
+  // 1: one random sample
+  if (psfreq > 1)
+    psfreq = sfreq;
+  if (lsfreq > 1)
+    lsfreq = sfreq;
+  if (tsfreq > 1)
+    tsfreq = sfreq * sfreq;
+
+  for (int j = 0; j < yres; ++j) {
+    for (int i = 0; i < xres; ++i) {
+      Color buffer(0.0, 0.0, 0.0);
+
+      vector<Point2D> pl = sampleInPixel(i, j, xres, yres, context);  // anti-aliasing
+      // expand to match the maximum between the number of samples on the lens and on the timeline
+      const int max_num_samples = max(lsfreq * lsfreq, tsfreq);
+      if (pl.size() == 1 && max_num_samples > 1) {
+        while (pl.size() < max_num_samples)
+          pl.push_back(pl[0]);
+      }
+      vector<Ray> rays;
+      camera->makeRays(rays, context, pl);  // depth of field
+      vector<double> tl = sampleOnTime(context);  // motion blur
+      if (tl.size() == 1 && tl.size() < rays.size()) {  // expand to match the number of rays
+        while (tl.size() < rays.size())
+          tl.push_back(tl[0]);
+      } else {
+        random_shuffle(tl.begin(), tl.end());
+      }
+
+      for (int k = 0; k < pl.size(); ++k) {
+        object->move(tl[k]);
+        HitRecord hit(DBL_MAX);
+        object->intersect(hit, context, rays[k]);
+        Color c(0.0, 0.0, 0.0);
+        if (hit.getPrimitive()) {
+          const Material* matl = hit.getMaterial();
+          matl->shade(c, context, rays[k], hit, atten, 0);
+        } else {
+          background->getBackgroundColor(c, context, rays[k]);
+        }
+        buffer += c;
+      }
+
       image->set(i, j, buffer / total_per_pixel);
 
       // progress bar

@@ -44,3 +44,10 @@ void PinholeCamera::makeRays(std::vector<Ray>& rays,
   rays.clear();
   rays.push_back(ray);
 }
+
+void PinholeCamera::makeRays(std::vector<Ray>& rays,
+                             const RenderContext& context,
+                             const std::vector<Point2D> subpixels) const {
+  // to-do
+  rays.clear();
+}

@@ -665,6 +665,8 @@ Scene *Parser::parseScene(
       scene->setLensSamplingFrequency( parseInteger() );
     else if ( peek( "timesamplingfrequency" ) )
       scene->setTimeSamplingFrequency( parseInteger() );
+    else if ( peek( "samplingfrequency" ) )
+      scene->setSamplingFrequency( parseInteger() );
     else if ( peek( "shutter" ) )
       scene->setShutter( parseReal() );
     else if ( peek( "camera" ) )

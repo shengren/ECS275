@@ -22,6 +22,9 @@ class ThinLensCamera : public Camera {
                         const RenderContext& context,
                         double x,
                         double y) const;
+  virtual void makeRays(std::vector<Ray>& rays,
+                        const RenderContext& context,
+                        const std::vector<Point2D> subpixels) const;
   virtual void makeRay(Ray& ray,
                        const RenderContext& context,
                        double x,
