@@ -68,9 +68,9 @@ void ThinLensCamera::makeRays(vector<Ray>& rays,
         Vector direction = target - sample;
         direction.normalize();
         rays.push_back(Ray(sample, direction));
-        s_rr += aperture * aperture / freq;
+        s_rr += d_rr;
       }
-      s_a += 2.0 * M_PI / freq;
+      s_a += d_a;
     }
   }
 
@@ -97,9 +97,9 @@ void ThinLensCamera::makeRays(vector<Ray>& rays,
         double r = sqrt(s_rr + d_rr * context.generateRandomNumber());
         Point s = center + lens_u * r * cos(a) + lens_v * r * sin(a);
         samples.push_back(s);
-        s_rr += aperture * aperture / freq;
+        s_rr += d_rr;
       }
-      s_a += 2.0 * M_PI / freq;
+      s_a += d_a;
     }
   }
 
