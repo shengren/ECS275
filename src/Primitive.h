@@ -13,6 +13,7 @@ class Vector;
 class Primitive : public Object {
  public:
   Primitive(Material* matl);
+  Primitive(Material* matl, bool is_luminous);  // to-do: may not the best solution to support area lights
   virtual ~Primitive();
 
   virtual void preprocess();
@@ -24,9 +25,13 @@ class Primitive : public Object {
                           const RenderContext&, const Point& hitpos) const = 0;
   virtual void computeUVW(Vector& uvw, const RenderContext& context,
                           const Ray& ray, const HitRecord& hit) const;
+  virtual bool isLuminous() const {
+    return is_luminous;
+  }
 
  protected:
   Material* matl;
+  bool is_luminous;
 
  private:
   Primitive(const Primitive&);

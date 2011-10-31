@@ -12,6 +12,9 @@ class Polygon : public Primitive {
  public:
   Polygon(Material* material, const std::vector<Point>& point_list,
           Vector direction, double speed);
+  Polygon(Material* material, bool is_luminous,
+          const std::vector<Point>& point_list,
+          Vector direction, double speed);
   virtual ~Polygon();
 
   virtual void getBounds(BoundingBox& bbox) const;

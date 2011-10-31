@@ -7,6 +7,7 @@
 #include "Color.h"
 #include <iostream>
 #include <string>
+#include <vector>
 #include <map>
 
 class Camera;
@@ -14,11 +15,12 @@ class Background;
 class Light;
 class Material;
 class Object;
+class Primitive;
 class Scene;
 class Group;
 
 class Parser {
-
+ private:
   struct Token {
     enum type {
       end_of_file,
@@ -80,6 +82,7 @@ class Parser {
   Material *parseLambertianMaterial();
   Material *parseMaterial();
 
+  Object *parsePolygonObject();
   Object *parseOffObject();
   Object *parseGroupObject();
   Object *parsePlaneObject();
@@ -88,8 +91,9 @@ class Parser {
 
   Group *parseOffFile(std::string filename, Material *material,
                       Vector direction, double speed);
+  std::vector<Primitive*> arealights;  // to-do: temporary workaround
 
-  public:
+ public:
 
   Parser(
     std::istream &input );

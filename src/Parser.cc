@@ -550,6 +550,42 @@ Material *Parser::parseMaterial()
     return 0;
 }
 
+Object *Parser::parsePolygonObject()
+{
+  Material *material = default_material;
+  bool is_luminous = false;
+  std::vector<Point> point_list;
+  Vector direction( 0.0, 0.0, 0.0 );  // to-do: set default values in function signature
+  double speed = 0.0;
+  if ( peek( Token::left_brace ) )
+    for ( ; ; )
+    {
+      if ( peek( "material" ) )
+        material = parseMaterial();
+      else if ( peek( "luminous" ) )
+        is_luminous = parseBoolean();
+      else if ( peek( "points" ) )
+      {
+        int num = parseInteger();
+        while (num--)
+          point_list.push_back( parsePoint() );
+      }
+      else if ( peek( "direction" ) )
+        direction = parseVector();
+      else if ( peek( "speed" ) )
+        speed = parseReal();
+      else if ( peek( Token::right_brace ) )
+        break;
+      else
+        throwParseException( "Expected `material', `luminous', `points', "
+                             "`direction', `speed' or }." );
+    }
+  Primitive* ret = new Polygon( material, is_luminous, point_list, direction, speed );
+  if (ret->isLuminous())
+    arealights.push_back(ret);
+  return ret;
+}
+
 Object *Parser::parseOffObject()
 {
   Material *material = default_material;
@@ -639,18 +675,20 @@ Object *Parser::parseSphereObject()
 Object *Parser::parseObject()
 {
     if ( peek( "group" ) )
-        return parseGroupObject();
+      return parseGroupObject();
     else if ( peek( "plane" ) )
-        return parsePlaneObject();
+      return parsePlaneObject();
     else if ( peek( "sphere" ) )
-        return parseSphereObject();
+      return parseSphereObject();
     else if ( peek( "off" ) )
-        return parseOffObject();
+      return parseOffObject();
+    else if ( peek( "polygon" ) )
+      return parsePolygonObject();
     else if ( next_token.token_type == Token::string )
     {
-        map< string, Object * >::iterator found = defined_objects.find( parseString() );
-        if ( found != defined_objects.end() )
-            return ( *found ).second;
+      map< string, Object * >::iterator found = defined_objects.find( parseString() );
+      if ( found != defined_objects.end() )
+        return ( *found ).second;
     }
     throwParseException( "Expected an object type." );
     return 0;
@@ -722,6 +760,8 @@ Scene *Parser::parseScene(
                              "`camera', `background', `ambient', `light', `scene', or `define'." );
   }
   scene->setImage( new Image( xres, yres ) );
+  for (int i = 0; i < arealights.size(); ++i)  // to-do: workaround
+    scene->addAreaLight(arealights[i]);
   return scene;
 }
 

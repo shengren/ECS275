@@ -6,12 +6,27 @@
 
 #include "Ray.h"
 #include "HitRecord.h"
+#include "RenderContext.h"
 
 using namespace std;
 
 Polygon::Polygon(Material* material, const vector<Point>& point_list,
                  Vector direction, double speed)
     : Primitive(material),
+      point_list(point_list),
+      direction(direction),
+      speed(speed) {
+  assert(point_list.size() >= 3);
+  Vector v1 = point_list[2] - point_list[1];
+  Vector v2 = point_list[0] - point_list[1];
+  n = Cross(v1, v2);
+  n.normalize();
+}
+
+Polygon::Polygon(Material* material, bool is_luminous,
+                 const std::vector<Point>& point_list,
+                 Vector direction, double speed)
+    : Primitive(material, is_luminous),
       point_list(point_list),
       direction(direction),
       speed(speed) {
@@ -70,15 +85,22 @@ void Polygon::getSamples(Color& color, std::vector<Vector>& directions,
                          const RenderContext& context,
                          const Point& hitpos) const {
   color = matl->getColor();
-  // to-do:
-  // dummy version, use the center of the polygon as a point light
-  double w = 1.0 / point_list.size();  // center
-  Point p(0.0, 0.0, 0.0);
-  for (int i = 0; i < point_list.size(); ++i) {
-    p += point_list[i] * w;
-  }
-  Vector dir = p - hitpos;
-  dir.normalize();
+  // to-do: stratified?
   directions.clear();
-  directions.push_back(dir);
+  int num_samples = 128;
+  for (int i = 0; i < num_samples; ++i) {
+    double rest = 1.0;
+    Point sp(0.0, 0.0, 0.0);
+    for (int i = 0; i < point_list.size(); ++i) {
+      if (i < point_list.size() - 1) {
+        double r = context.generateRandomNumber() * rest;
+        sp += point_list[i] * r;
+        rest -= r;
+      } else {
+        sp += point_list[i] * rest;  // sum of weights = 1
+      }
+    }
+    Vector dir = sp - hitpos;
+    directions.push_back(dir);
+  }
 }
