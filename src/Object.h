@@ -2,8 +2,10 @@
 #ifndef Object_h
 #define Object_h
 
+#include "Color.h"
+
 class BoundingBox;
-class Color;
+//class Color;
 class HitRecord;
 class Ray;
 class RenderContext;

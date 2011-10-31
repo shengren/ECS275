@@ -2,8 +2,11 @@
 #ifndef Primitive_h
 #define Primitive_h
 
+#include <vector>
 #include "Object.h"
-class Material;
+#include "Material.h"
+
+//class Material;
 class Point;
 class Vector;
 
@@ -17,6 +20,8 @@ class Primitive : public Object {
   virtual void normal(Vector& normal, const RenderContext& context,
                       const Point& hitpos, const Ray& ray, const HitRecord& hit) const = 0;
   virtual void move(double dt) = 0;
+  virtual void getSamples(Color& color, std::vector<Vector>& directions,
+                          const RenderContext&, const Point& hitpos) const = 0;
   virtual void computeUVW(Vector& uvw, const RenderContext& context,
                           const Ray& ray, const HitRecord& hit) const;
 

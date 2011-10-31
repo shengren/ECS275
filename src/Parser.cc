@@ -6,6 +6,7 @@
 #include "PointLight.h"
 #include "LambertianMaterial.h"
 #include "PhongMaterial.h"
+#include "BasicMaterial.h"
 #include "Group.h"
 #include "Plane.h"
 #include "Sphere.h"
@@ -509,12 +510,36 @@ Material *Parser::parsePhongMaterial()
   return new PhongMaterial( color, Ka, Kd, Ks, p, Kr );
 }
 
+Material *Parser::parseBasicMaterial()
+{
+  Color color( 1.0, 1.0, 1.0 );
+  bool is_luminous = false;
+  bool is_reflective = false;
+  if ( peek( Token::left_brace ) )
+    for ( ; ; )
+    {
+      if ( peek( "color" ) )
+        color = parseColor();
+      else if ( peek( "luminous" ) )
+        is_luminous = parseBoolean();
+      else if ( peek( "reflective" ) )
+        is_reflective = parseBoolean();
+      else if ( peek( Token::right_brace ) )
+        break;
+      else
+        throwParseException( "Expected `color', `luminous', `reflective' or }." );
+    }
+  return new BasicMaterial( color, is_luminous, is_reflective );
+}
+
 Material *Parser::parseMaterial()
 {
     if ( peek( "lambertian" ) )
       return parseLambertianMaterial();
     else if ( peek( "phong" ) )
       return parsePhongMaterial();
+    else if ( peek( "basic" ) )
+      return parseBasicMaterial();
     else if ( next_token.token_type == Token::string )
     {
         map< string, Material * >::iterator found = defined_materials.find( parseString() );

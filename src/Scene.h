@@ -2,9 +2,9 @@
 #ifndef Scene_h
 #define Scene_h
 
-#include "Color.h"
 #include <string>
 #include <vector>
+#include "Color.h"
 
 class Background;
 class Camera;
@@ -12,6 +12,7 @@ class Color;
 class Image;
 class Light;
 class Object;
+class Primitive;
 class RenderContext;
 class Ray;
 struct Point2D;
@@ -54,6 +55,13 @@ class Scene {
   }
   const std::vector<Light*>& getLights() const {
     return lights;
+  }
+
+  void addAreaLight(Primitive* area_light) {
+    arealights.push_back(area_light);
+  }
+  const std::vector<Primitive*>& getAreaLights() const {
+    return arealights;
   }
 
   Color getAmbient() const {
@@ -151,6 +159,7 @@ class Scene {
   Image* image;
   Object* object;
   std::vector<Light*> lights;
+  std::vector<Primitive*> arealights;
   int maxRayDepth;
   double minAttenuation;
   int psfreq;

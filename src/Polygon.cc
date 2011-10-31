@@ -65,3 +65,20 @@ void Polygon::move(double dt) {
   for (int i = 0; i < point_list.size(); ++i)
     point_list[i] += direction * speed * dt;
 }
+
+void Polygon::getSamples(Color& color, std::vector<Vector>& directions,
+                         const RenderContext& context,
+                         const Point& hitpos) const {
+  color = matl->getColor();
+  // to-do:
+  // dummy version, use the center of the polygon as a point light
+  double w = 1.0 / point_list.size();  // center
+  Point p(0.0, 0.0, 0.0);
+  for (int i = 0; i < point_list.size(); ++i) {
+    p += point_list[i] * w;
+  }
+  Vector dir = p - hitpos;
+  dir.normalize();
+  directions.clear();
+  directions.push_back(dir);
+}
