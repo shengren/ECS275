@@ -81,26 +81,42 @@ void Polygon::move(double dt) {
     point_list[i] += direction * speed * dt;
 }
 
-void Polygon::getSamples(Color& color, std::vector<Vector>& directions,
+void Polygon::getSamples(Color& color,
+                         std::vector<Vector>& paths,
                          const RenderContext& context,
                          const Point& hitpos) const {
   color = matl->getColor();
-  // to-do: stratified?
-  directions.clear();
+  paths.clear();
+
+  // stratified sampling on parallelograms(including rectangles and squares)
+  if (point_list.size() == 4) {
+    Vector u = point_list[0] - point_list[1];
+    Vector v = point_list[2] - point_list[1];
+    if (((point_list[1] + (u + v)) - point_list[3]).length2() < 1e-12) {
+      int freq = 8;  // to-do: defined somewhere else
+      Vector du = u / (double)freq;
+      Vector dv = v / (double)freq;
+      for (int i = 0; i < freq; ++i)
+        for (int j = 0; j < freq; ++j) {
+          Point sp = point_list[1] +
+                     du * (i + context.generateRandomNumber()) +
+                     dv * (j + context.generateRandomNumber());
+          paths.push_back(sp - hitpos);
+        }
+      return;
+    }
+  }
+
   int num_samples = 128;
   for (int i = 0; i < num_samples; ++i) {
     double rest = 1.0;
     Point sp(0.0, 0.0, 0.0);
-    for (int i = 0; i < point_list.size(); ++i) {
-      if (i < point_list.size() - 1) {
-        double r = context.generateRandomNumber() * rest;
-        sp += point_list[i] * r;
-        rest -= r;
-      } else {
-        sp += point_list[i] * rest;  // sum of weights = 1
-      }
+    for (int i = 0; i < point_list.size() - 1; ++i) {  // except the last point in the list
+      double w = context.generateRandomNumber() * rest;
+      sp += point_list[i] * w;
+      rest -= w;
     }
-    Vector dir = sp - hitpos;
-    directions.push_back(dir);
+    sp += point_list[point_list.size() - 1] * rest;  // sum of weights = 1
+    paths.push_back(sp - hitpos);
   }
 }
