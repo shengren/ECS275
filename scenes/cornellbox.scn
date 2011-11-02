@@ -1,0 +1,176 @@
+// Not the exact cornell box. http://www.graphics.cornell.edu/online/box/data.html
+// The surfaces are perfectly perpendicular.
+// Camera's position is changed as well.
+// Divide the ceiling into 5 pieces and the center one is an area light.
+xres 512
+yres 512
+filename "image.ppm"
+maxraydepth 5
+minattenuation -1.0
+pixelsamplingfrequency 0
+lenssamplingfrequency 0
+timesamplingfrequency 0
+samplingfrequency 0
+shutter 1.0
+
+camera thinlens {
+  //center [ 278, 273, -800 ]
+  center [ 278, 274, -800 ]
+  //shoot_at [ 278, 273, -799 ]
+  shoot_at [ 278, 274, -799 ]
+  up [ 0, 1, 0 ]
+  hfov 39
+  aperture 0.0125
+  focal_dist 0.035
+}
+
+background constant {
+  color [ 0.0, 0.0, 0.0 ]
+}
+
+//ambient [ 0.6, 0.6, 0.6 ]
+
+//light point {
+//  position [ 278, 273, -800 ]
+//  color [ 0.9, 0.9, 0.9 ]
+//}
+
+scene group {
+  polygon {  // area light
+    material basic {
+      color [ 1.0, 1.0, 1.0 ]
+      luminous true
+      reflective false
+    }
+    luminous true
+    points 4
+    [ 213, 548.8, 227 ]
+    [ 343, 548.8, 227 ]
+    [ 343, 548.8, 332 ]
+    [ 213, 548.8, 332 ]
+  }
+  polygon {  // ceiling part 0
+    material basic {
+      color [ 1.0, 1.0, 1.0 ]
+      luminous false
+      reflective false
+    }
+    points 4
+    [ 0, 548.8, 0 ]
+    [ 556, 548.8, 0 ]
+    [ 556, 548.8, 227 ]
+    [ 0, 548.8, 227 ]
+  }
+  polygon {  // ceiling part 1
+    material basic {
+      color [ 1.0, 1.0, 1.0 ]
+      luminous false
+      reflective false
+    }
+    points 4
+    [ 0, 548.8, 332 ]
+    [ 556, 548.8, 332 ]
+    [ 556, 548.8, 559.2 ]
+    [ 0, 548.8, 559.2 ]
+  }
+  polygon {  // ceiling part 2
+    material basic {
+      color [ 1.0, 1.0, 1.0 ]
+      luminous false
+      reflective false
+    }
+    points 4
+    [ 0, 548.8, 227 ]
+    [ 213, 548.8, 227 ]
+    [ 213, 548.8, 332 ]
+    [ 0, 548.8, 332 ]
+  }
+  polygon {  // ceiling part 3
+    material basic {
+      color [ 1.0, 1.0, 1.0 ]
+      luminous false
+      reflective false
+    }
+    points 4
+    [ 343, 548.8, 227 ]
+    [ 556, 548.8, 227 ]
+    [ 556, 548.8, 332 ]
+    [ 343, 548.8, 332 ]
+  }
+  polygon {  // floor
+    material basic {
+      color [ 1.0, 1.0, 1.0 ]
+      luminous false
+      reflective false
+    }
+    points 4
+    //[ 552.8, 0.0, 0.0 ]
+    [ 556.0, 0.0, 0.0 ]
+    [ 0.0, 0.0, 0.0 ]
+    [ 0.0, 0.0, 559.2 ]
+    //[ 549.6, 0.0, 559.2 ]
+    [ 556.0, 0.0, 559.2 ]
+  }
+  //polygon {  // ceiling
+  //  points 4
+  //  [ 556.0, 548.8, 0.0 ]
+  //  [ 556.0, 548.8, 559.2 ]
+  //  [ 0.0, 548.8, 559.2 ]
+  //  [ 0.0, 548.8, 0.0 ]
+  //}
+  polygon {  // back wall
+    material basic {
+      color [ 1.0, 1.0, 1.0 ]
+      luminous false
+      reflective false
+    }
+    points 4
+    //[ 549.6, 0.0, 559.2 ]
+    [ 556.0, 0.0, 559.2 ]
+    [ 0.0, 0.0, 559.2 ]
+    [ 0.0, 548.8, 559.2 ]
+    [ 556.0, 548.8, 559.2 ]
+  }
+  polygon {  // right wall, green
+    material basic {
+      color [ 1.0, 0.0, 0.0 ]
+      luminous false
+      reflective false
+    }
+    points 4
+    [ 0.0, 0.0, 559.2 ]
+    [ 0.0, 0.0, 0.0 ]
+    [ 0.0, 548.8, 0.0 ]
+    [ 0.0, 548.8, 559.2 ]
+  }
+  polygon {  // left wall, red
+    material basic {
+      color [ 0.0, 1.0, 0.0 ]
+      luminous false
+      reflective false
+    }
+    points 4
+    //[ 552.8, 0.0, 0.0 ]
+    [ 556.0, 0.0, 0.0 ]
+    //[ 549.6, 0.0, 559.2 ]
+    [ 556.0, 0.0, 559.2 ]
+    [ 556.0, 548.8, 559.2 ]
+    [ 556.0, 548.8, 0.0 ]
+  }
+  off {
+    material basic {
+      color [ 1.0, 1.0, 1.0 ]
+      luminous false
+      reflective false
+    }
+    filename shortblock
+  }
+  off {
+    material basic {
+      color [ 1.0, 1.0, 1.0 ]
+      luminous false
+      reflective false
+    }
+    filename tallblock
+  }
+}
