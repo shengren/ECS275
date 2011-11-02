@@ -45,6 +45,10 @@ void BasicMaterial::shade(Color& result,
   const Object* world = scene->getObject();
 
   //Color light = scene->getAmbient() * 0.5;  // to-do: hardcoded
+  if (is_luminous) {  // for objects can emit, workaround
+    result = color;
+    return;
+  }
 
   // direct illumination - trace shadow rays to all area lights
   Color direct_light(0.0, 0.0, 0.0);

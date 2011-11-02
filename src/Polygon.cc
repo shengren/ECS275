@@ -93,7 +93,7 @@ void Polygon::getSamples(Color& color,
     Vector u = point_list[0] - point_list[1];
     Vector v = point_list[2] - point_list[1];
     if (((point_list[1] + (u + v)) - point_list[3]).length2() < 1e-12) {
-      int freq = 8;  // to-do: defined somewhere else
+      int freq = 2;  // to-do: defined somewhere else
       Vector du = u / (double)freq;
       Vector dv = v / (double)freq;
       for (int i = 0; i < freq; ++i)
