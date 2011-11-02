@@ -79,9 +79,9 @@ void BasicMaterial::shade(Color& result,
   // indirect illumination - path tracing
   // create the coordinate system around the hitpos based on its normal
   Vector u;
-  if (abs(normal.x() - 1.0) < 1e-12 &&
-      abs(normal.y() - 0.0) < 1e-12 &&
-      abs(normal.z() - 0.0) < 1e-12) {
+  if (abs(abs(normal.x()) - 1.0) < 1e-12 &&
+      abs(normal.y()) < 1e-12 &&
+      abs(normal.z()) < 1e-12) {
     u = Cross(normal, Vector(0.0, 1.0, 0.0));
   } else {
     u = Cross(normal, Vector(1.0, 0.0, 0.0));

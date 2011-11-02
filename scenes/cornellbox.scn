@@ -133,7 +133,7 @@ scene group {
   }
   polygon {  // right wall, green
     material basic {
-      color [ 1.0, 0.0, 0.0 ]
+      color [ 0.0, 1.0, 0.0 ]
       luminous false
       reflective false
     }
@@ -145,7 +145,7 @@ scene group {
   }
   polygon {  // left wall, red
     material basic {
-      color [ 0.0, 1.0, 0.0 ]
+      color [ 1.0, 0.0, 0.0 ]
       luminous false
       reflective false
     }
