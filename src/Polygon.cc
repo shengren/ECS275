@@ -3,6 +3,7 @@
 #include <vector>
 #include <cassert>
 #include <cmath>
+#include <cstdio>
 
 #include "Ray.h"
 #include "HitRecord.h"
@@ -17,27 +18,39 @@ Polygon::Polygon(Material* material, const vector<Point>& point_list,
       direction(direction),
       speed(speed) {
   assert(point_list.size() >= 3);
-  Vector v1 = point_list[2] - point_list[1];
-  Vector v2 = point_list[0] - point_list[1];
-  n = Cross(v1, v2);
-  n.normalize();
 }
 
-Polygon::Polygon(Material* material, bool is_luminous,
+Polygon::Polygon(Material* material, bool is_luminous, int sf,
                  const std::vector<Point>& point_list,
                  Vector direction, double speed)
-    : Primitive(material, is_luminous),
+    : Primitive(material, is_luminous, sf),
       point_list(point_list),
       direction(direction),
       speed(speed) {
   assert(point_list.size() >= 3);
+}
+
+Polygon::~Polygon() {
+}
+
+void Polygon::preprocess() {
+  // normal
   Vector v1 = point_list[2] - point_list[1];
   Vector v2 = point_list[0] - point_list[1];
   n = Cross(v1, v2);
   n.normalize();
-}
-
-Polygon::~Polygon() {
+  // area
+  Point o(0.0, 0.0, 0.0);
+  a = 0.0;
+  int num = point_list.size();
+  for (int i = 0; i < num; ++i) {
+    Vector t = Cross(point_list[i] - o, point_list[(i + 1) % num] - o);
+    double ta = t.length() * 0.5;
+    if (Dot(n, t) < 0.0) ta = -ta;
+    a += ta;
+  }
+  a = abs(a);
+  assert(a > 0.0);
 }
 
 void Polygon::getBounds(BoundingBox& bbox) const {
@@ -81,32 +94,31 @@ void Polygon::move(double dt) {
     point_list[i] += direction * speed * dt;
 }
 
-void Polygon::getSamples(Color& color,
-                         std::vector<Vector>& paths,
+void Polygon::getSamples(std::vector<Vector>& rays,
                          const RenderContext& context,
                          const Point& hitpos) const {
-  color = matl->getColor();
-  paths.clear();
+  rays.clear();
 
   // stratified sampling on parallelograms(including rectangles and squares)
   if (point_list.size() == 4) {
     Vector u = point_list[0] - point_list[1];
     Vector v = point_list[2] - point_list[1];
-    if (((point_list[1] + (u + v)) - point_list[3]).length2() < 1e-12) {
-      int freq = 2;  // to-do: defined somewhere else
-      Vector du = u / (double)freq;
-      Vector dv = v / (double)freq;
-      for (int i = 0; i < freq; ++i)
-        for (int j = 0; j < freq; ++j) {
+    if (((point_list[1] + (u + v)) - point_list[3]).length2() < 1e-12) {  // check if it is a parallelogram
+      Vector du = u / (double)sf;
+      Vector dv = v / (double)sf;
+      for (int i = 0; i < sf; ++i)
+        for (int j = 0; j < sf; ++j) {
           Point sp = point_list[1] +
                      du * (i + context.generateRandomNumber()) +
                      dv * (j + context.generateRandomNumber());
-          paths.push_back(sp - hitpos);
+          rays.push_back(sp - hitpos);
         }
       return;
     }
   }
 
+  // to-do: now no implementation for irregular polygons
+  /*
   int num_samples = 128;
   for (int i = 0; i < num_samples; ++i) {
     double rest = 1.0;
@@ -117,6 +129,11 @@ void Polygon::getSamples(Color& color,
       rest -= w;
     }
     sp += point_list[point_list.size() - 1] * rest;  // sum of weights = 1
-    paths.push_back(sp - hitpos);
+    rays.push_back(sp - hitpos);
   }
+  */
+}
+
+double Polygon::getArea() const {
+  return a;
 }

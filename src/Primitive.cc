@@ -10,8 +10,8 @@ Primitive::Primitive(Material* matl)
 {
 }
 
-Primitive::Primitive(Material* matl, bool is_luminous)
-  : matl(matl), is_luminous(is_luminous)
+Primitive::Primitive(Material* matl, bool is_luminous, int sf)
+  : matl(matl), is_luminous(is_luminous), sf(sf)
 {
 }
 

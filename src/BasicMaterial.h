@@ -25,6 +25,12 @@ class BasicMaterial : public Material {
  private:
   BasicMaterial(const BasicMaterial&);
   BasicMaterial& operator=(const BasicMaterial&);
+  Color directIlluminate(const RenderContext& context,
+                         const Ray& ray,
+                         const HitRecord& hit) const;
+  Color indirectIlluminate(const RenderContext& context,
+                           const Ray& ray,
+                           const HitRecord& hit) const;
 
   Color color;
   bool is_luminous;

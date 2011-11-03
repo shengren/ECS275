@@ -4,6 +4,7 @@
 #include <vector>
 #include <cfloat>
 #include <cmath>
+#include <cstdio>
 
 #include "HitRecord.h"
 #include "Point.h"
@@ -36,46 +37,55 @@ void BasicMaterial::shade(Color& result,
   if (depth >= scene->getMaxRayDepth())
     return;
 
-  Point hitpos = ray.origin() + ray.direction() * hit.minT();
-  Vector normal;
-  hit.getPrimitive()->normal(normal, context, hitpos, ray, hit);
-  double costheta = Dot(normal, ray.direction());
-  if (costheta > 0)
-    normal = -normal;
-  const Object* world = scene->getObject();
-
-  //Color light = scene->getAmbient() * 0.5;  // to-do: hardcoded
   if (is_luminous) {  // for objects can emit, workaround
     result = color;
     return;
   }
 
+  result = directIlluminate(context, ray, hit) * color;
+}
+
+Color BasicMaterial::directIlluminate(const RenderContext& context,
+                                      const Ray& ray,
+                                      const HitRecord& hit) const {
+  const Scene* scene = context.getScene();
+  const Object* world = scene->getObject();
+  Point hitpos = ray.origin() + ray.direction() * hit.minT();
+  Vector normal;
+  hit.getPrimitive()->normal(normal, context, hitpos, ray, hit);
+  if (Dot(normal, ray.direction()) > 0.0)
+    normal = -normal;
+  Color ret(0.0, 0.0, 0.0);
+
   // direct illumination - trace shadow rays to all area lights
-  Color direct_light(0.0, 0.0, 0.0);
   const vector<Primitive*>& arealights = scene->getAreaLights();
-  Primitive*const* begin = &arealights[0];
-  Primitive*const* end = &arealights[0] + arealights.size();
-  while (begin != end) {
-    Color light_color;
-    vector<Vector> light_paths;  // not only the direction but also the distance
-    (*begin++)->getSamples(light_color, light_paths, context, hitpos);
+  for (int i = 0; i < arealights.size(); ++i) {
+    const Primitive& light_source = *(arealights[i]);
+    vector<Vector> light_rays;  // not only the direction but also the distance
+    light_source.getSamples(light_rays, context, hitpos);
     int num_pass = 0;
-    for (int i = 0; i < light_paths.size(); ++i) {
-      double cosphi = Dot(normal, light_paths[i]);
-      if (cosphi > 0) {
-        HitRecord shadowhit(light_paths[i].length());
-        Vector dir = light_paths[i];
+    for (int i = 0; i < light_rays.size(); ++i) {
+      if (Dot(normal, light_rays[i]) > 0) {  // visibility part I
+        HitRecord shadowhit(light_rays[i].length());
+        Vector dir = light_rays[i];
         dir.normalize();
         Ray shadowray(hitpos, dir);
         world->intersect(shadowhit, context, shadowray);
-        if (!shadowhit.getPrimitive())  // hit nothing
+        if (!shadowhit.getPrimitive())  // hit nothing, visibility part II
           ++num_pass;
       }
     }
-    direct_light += light_color * ((double)num_pass / light_paths.size());
+    ret += light_source.getColor() * ((double)num_pass / light_rays.size());
   }
-  result = direct_light * color;
 
+  return ret;
+}
+
+Color BasicMaterial::indirectIlluminate(const RenderContext& context,
+                                        const Ray& ray,
+                                        const HitRecord& hit) const {
+  return Color(0.0, 0.0, 0.0);
+  /*
   // indirect illumination - path tracing
   // create the coordinate system around the hitpos based on its normal
   Vector u;
@@ -115,4 +125,5 @@ void BasicMaterial::shade(Color& result,
   double BRDF = 1.0 * cosomega;  // to-do: hardcoded
   Color indirect_light = c * (BRDF * cosomega);
   result += indirect_light * color;
+  */
 }

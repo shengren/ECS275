@@ -18,7 +18,7 @@ class Plane : public Primitive {
   virtual void normal(Vector& normal, const RenderContext& context,
                       const Point & hitpos, const Ray& ray, const HitRecord& hit) const;
   virtual void move(double dt) {}
-  virtual void getSamples(Color& color, std::vector<Vector>& directions,
+  virtual void getSamples(std::vector<Vector>& rays,
                           const RenderContext& context,
                           const Point& hitpos) const {}
 

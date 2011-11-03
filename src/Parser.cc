@@ -553,7 +553,8 @@ Material *Parser::parseMaterial()
 Object *Parser::parsePolygonObject()
 {
   Material *material = default_material;
-  bool is_luminous = false;
+  bool is_luminous = false;  // to-do: these two workaround variables are now only defined in Polygon
+  int sf = 1;  // sampling frequency (sf x sf)
   std::vector<Point> point_list;
   Vector direction( 0.0, 0.0, 0.0 );  // to-do: set default values in function signature
   double speed = 0.0;
@@ -564,6 +565,8 @@ Object *Parser::parsePolygonObject()
         material = parseMaterial();
       else if ( peek( "luminous" ) )
         is_luminous = parseBoolean();
+      else if ( peek( "frequency" ) )
+        sf = parseInteger();
       else if ( peek( "points" ) )
       {
         int num = parseInteger();
@@ -577,11 +580,11 @@ Object *Parser::parsePolygonObject()
       else if ( peek( Token::right_brace ) )
         break;
       else
-        throwParseException( "Expected `material', `luminous', `points', "
+        throwParseException( "Expected `material', `luminous', `frequency', `points', "
                              "`direction', `speed' or }." );
     }
-  Primitive* ret = new Polygon( material, is_luminous, point_list, direction, speed );
-  if (ret->isLuminous())
+  Primitive* ret = new Polygon( material, is_luminous, sf, point_list, direction, speed );
+  if (ret->isLuminous())  // put in a temporary area light list in Parser
     arealights.push_back(ret);
   return ret;
 }
@@ -761,7 +764,7 @@ Scene *Parser::parseScene(
   }
   scene->setImage( new Image( xres, yres ) );
   for (int i = 0; i < arealights.size(); ++i)  // to-do: workaround
-    scene->addAreaLight(arealights[i]);
+    scene->addAreaLight(arealights[i]);  // copy area lights to a list in Scene from Parser
   return scene;
 }
 
