@@ -58,7 +58,7 @@ void Polygon::getBounds(BoundingBox& bbox) const {
 
 void Polygon::intersect(HitRecord& hit, const RenderContext& context,
                         const Ray& ray) const {
-  if (Dot(n, ray.direction()) > 0.0)
+  if (Dot(ray.direction(), n) > -1e-12)  // >= 0
     return;
   double t = Dot(point_list[0] - ray.origin(), n) / Dot(ray.direction(), n);
   if (t < 0.0)

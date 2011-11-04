@@ -5,6 +5,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
+#include <cassert>
 
 #include "HitRecord.h"
 #include "Point.h"
@@ -20,8 +21,12 @@ using namespace std;
 
 BasicMaterial::BasicMaterial(const Color& color,
                              const bool is_luminous,
-                             const bool is_reflective)
-  : color(color), is_luminous(is_luminous), is_reflective(is_reflective) {
+                             const bool is_reflective,
+                             const double Kd,
+                             const double Ks,
+                             const double p)
+  : color(color), is_luminous(is_luminous), is_reflective(is_reflective),
+    Kd(Kd), Ks(Ks), p(p) {
 }
 
 BasicMaterial::~BasicMaterial() {
@@ -34,7 +39,7 @@ void BasicMaterial::shade(Color& result,
                           const Color& atten,
                           int depth) const {
   const Scene* scene = context.getScene();
-  if (depth >= scene->getMaxRayDepth())
+  if (depth > scene->getMaxRayDepth())
     return;
 
   if (is_luminous) {  // for objects can emit, workaround
@@ -42,7 +47,14 @@ void BasicMaterial::shade(Color& result,
     return;
   }
 
-  result = directIlluminate(context, ray, hit) * color;
+  //result = directIlluminate(context, ray, hit) * color;
+  //result = indirectIlluminate(context, ray, hit, depth) * color;
+  //result = directIlluminate(context, ray, hit) * color +
+  //         indirectIlluminate(context, ray, hit, depth) * color;
+  Color light = directIlluminate(context, ray, hit) +
+                indirectIlluminate(context, ray, hit, depth);
+  result = light * color;
+  result /= result.maxComponent();
 }
 
 Color BasicMaterial::directIlluminate(const RenderContext& context,
@@ -53,7 +65,7 @@ Color BasicMaterial::directIlluminate(const RenderContext& context,
   Point hitpos = ray.origin() + ray.direction() * hit.minT();
   Vector normal;
   hit.getPrimitive()->normal(normal, context, hitpos, ray, hit);
-  if (Dot(normal, ray.direction()) > 0.0)
+  if (Dot(normal, ray.direction()) > 0.0)  // to-do: necessary?
     normal = -normal;
   Color ret(0.0, 0.0, 0.0);
 
@@ -63,19 +75,26 @@ Color BasicMaterial::directIlluminate(const RenderContext& context,
     const Primitive& light_source = *(arealights[i]);
     vector<Vector> light_rays;  // not only the direction but also the distance
     light_source.getSamples(light_rays, context, hitpos);
-    int num_pass = 0;
+
+    double ratio = 0.0;
     for (int i = 0; i < light_rays.size(); ++i) {
       if (Dot(normal, light_rays[i]) > 0) {  // visibility part I
         HitRecord shadowhit(light_rays[i].length());
         Vector dir = light_rays[i];
         dir.normalize();
+        if (abs(Dot(dir, normal)) < 1e-12) continue;  // horizontal rays, to-do: cannot detect in intersect()
         Ray shadowray(hitpos, dir);
         world->intersect(shadowhit, context, shadowray);
-        if (!shadowhit.getPrimitive())  // hit nothing, visibility part II
-          ++num_pass;
+        if (!shadowhit.getPrimitive()) {  // hit nothing, visibility part II
+          double BRDF = modifiedPhongBRDF(dir, normal, -ray.direction());
+          double inverse_square_distance = 1.0 / light_rays[i].length2();
+          ratio += BRDF * inverse_square_distance;
+        }
       }
     }
-    ret += light_source.getColor() * ((double)num_pass / light_rays.size());
+    ratio = ratio * light_source.getArea() / light_rays.size();
+
+    ret += light_source.getColor() * ratio;
   }
 
   return ret;
@@ -83,47 +102,89 @@ Color BasicMaterial::directIlluminate(const RenderContext& context,
 
 Color BasicMaterial::indirectIlluminate(const RenderContext& context,
                                         const Ray& ray,
-                                        const HitRecord& hit) const {
-  return Color(0.0, 0.0, 0.0);
-  /*
+                                        const HitRecord& hit,
+                                        const int depth) const {
+  const Scene* scene = context.getScene();
+  const Object* world = scene->getObject();
+  Point hitpos = ray.origin() + ray.direction() * hit.minT();
+  Vector normal;
+  hit.getPrimitive()->normal(normal, context, hitpos, ray, hit);
+  if (Dot(normal, ray.direction()) > 0.0)  // to-do: necessary?
+    normal = -normal;
+  Color ret(0.0, 0.0, 0.0);
+
   // indirect illumination - path tracing
+  const int freq = scene->getIndirectSamplingFrequency();
+  for (int i = 0; i < freq; ++i) {
+    int max_num_try = 16;  // to-do: necessary?
+    while (max_num_try--) {  // in case the random direction pointing to a light source
+      Vector dir = uniformSamplingOfHemisphere(normal, context);
+      Ray recursive_ray(hitpos, dir);
+      HitRecord recursive_hit(DBL_MAX);
+      world->intersect(recursive_hit, context, recursive_ray);
+      Color c(0.0, 0.0, 0.0);
+
+      if (recursive_hit.getPrimitive()) {
+        if (recursive_hit.getPrimitive()->isLuminous())  // hit a light source, turn of this when only indirect
+          continue;
+        recursive_hit.getMaterial()->shade(c,
+                                           context,
+                                           recursive_ray,
+                                           recursive_hit,
+                                           Color(0.0, 0.0, 0.0),
+                                           depth + 1);
+      } else {
+        scene->getBackground()->getBackgroundColor(c, context, recursive_ray);
+      }
+
+      double BRDF = modifiedPhongBRDF(dir, normal, -ray.direction());
+      double cos = Dot(dir, normal);
+      ret += c * BRDF * cos;
+      break;
+    }
+  }
+  ret *= 2.0 * M_PI / freq;  // pair to uniform hemisphere sampling
+
+  return ret;
+}
+
+Vector BasicMaterial::getPerfectSpecularDirection(Vector v, Vector n) const {
+  Vector s = n * (2.0 * Dot(v, n)) - v;
+  s.normalize();
+  return s;
+}
+
+double BasicMaterial::modifiedPhongBRDF(Vector in, Vector n, Vector out) const {
+  Vector s = getPerfectSpecularDirection(in, n);
+  double cos = Dot(out, s);
+  assert(cos <= 1.0);
+  return Kd + Ks * pow(cos, p);
+}
+
+Vector BasicMaterial::uniformSamplingOfHemisphere(
+    const Vector n,
+    const RenderContext& context) const {
   // create the coordinate system around the hitpos based on its normal
   Vector u;
-  if (abs(abs(normal.x()) - 1.0) < 1e-12 &&
-      abs(normal.y()) < 1e-12 &&
-      abs(normal.z()) < 1e-12) {
-    u = Cross(normal, Vector(0.0, 1.0, 0.0));
+  if (abs(abs(n.x()) - 1.0) < 1e-12 &&
+      abs(n.y()) < 1e-12 &&
+      abs(n.z()) < 1e-12) {
+    u = Cross(n, Vector(0.0, 1.0, 0.0));
   } else {
-    u = Cross(normal, Vector(1.0, 0.0, 0.0));
+    u = Cross(n, Vector(1.0, 0.0, 0.0));
   }
   u.normalize();
-  Vector v = Cross(u, normal);
+  Vector v = Cross(u, n);
   v.normalize();
-  // naive sampling on unit hemisphere
-  double phi = 2.0 * M_PI * context.generateRandomNumber();
-  double r = context.generateRandomNumber();  // unit hemisphere radius = 1.0
-  Point sp = hitpos + u * (r * cos(phi)) + v * (r * sin(phi)) +
-             normal * sqrt(1.0 - r * r);
-  Vector dir = sp - hitpos;
-  dir.normalize();  // to-do: necessary?
-  Ray next_ray(hitpos, dir);
-  HitRecord next_hit(DBL_MAX);
-  world->intersect(next_hit, context, next_ray);
-  Color c(0.0, 0.0, 0.0);
-  if (next_hit.getPrimitive()) {
-    Color atten;
-    next_hit.getMaterial()->shade(c,
-                                  context,
-                                  next_ray,
-                                  next_hit,
-                                  atten,
-                                  depth + 1);
-  } else {
-    scene->getBackground()->getBackgroundColor(c, context, next_ray);
-  }
-  double cosomega = Dot(dir, normal);
-  double BRDF = 1.0 * cosomega;  // to-do: hardcoded
-  Color indirect_light = c * (BRDF * cosomega);
-  result += indirect_light * color;
-  */
+  // uniform sampling on unit hemisphere
+  double alpha = 2.0 * M_PI * context.generateRandomNumber();
+  double beta = 0.5 * M_PI * context.generateRandomNumber();
+  Point o(0.0, 0.0, 0.0);
+  Point sp = o +
+             u * (cos(beta) * cos(alpha)) +
+             v * (cos(beta) * sin(alpha)) +
+             n * sin(beta);
+  Vector ret = sp - o;
+  ret.normalize();
+  return ret;
 }

@@ -113,7 +113,7 @@ class Scene {
     if (tsfreq > 32)
       tsfreq = 32;
   }
-  const int getTimeSamplingFrequency() {
+  const int getTimeSamplingFrequency() const {
     return tsfreq;
   }
 
@@ -124,8 +124,19 @@ class Scene {
     if (sfreq > 32)
       sfreq = 32;
   }
-  const int getSamplingFrequency() {
+  const int getSamplingFrequency() const {
     return sfreq;
+  }
+
+  void setIndirectSamplingFrequency(const int val) {
+    indirectfreq = val;
+    if (indirectfreq <= 0)
+      indirectfreq = 1;
+    if (indirectfreq > 32)
+      indirectfreq = 32;
+  }
+  const int getIndirectSamplingFrequency() const {
+    return indirectfreq;
   }
 
   void setShutter(const double val) {
@@ -166,6 +177,7 @@ class Scene {
   int lsfreq;
   int tsfreq;
   int sfreq;  // used in permutation based distributed ray tracing
+  int indirectfreq;  // used in indirect illumination
   double shutter;  // to-do: a camera parameter?
   //std::vector<std::vector<Color> > buffer;
 

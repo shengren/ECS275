@@ -515,6 +515,9 @@ Material *Parser::parseBasicMaterial()
   Color color( 1.0, 1.0, 1.0 );
   bool is_luminous = false;
   bool is_reflective = false;
+  double Kd = 0.16;
+  double Ks = 1.75;
+  double p = 20;
   if ( peek( Token::left_brace ) )
     for ( ; ; )
     {
@@ -524,12 +527,19 @@ Material *Parser::parseBasicMaterial()
         is_luminous = parseBoolean();
       else if ( peek( "reflective" ) )
         is_reflective = parseBoolean();
+      else if ( peek( "Kd" ) )
+        Kd = parseReal();
+      else if ( peek( "Ks" ) )
+        Ks = parseReal();
+      else if ( peek( "p" ) )
+        p = parseReal();
       else if ( peek( Token::right_brace ) )
         break;
       else
-        throwParseException( "Expected `color', `luminous', `reflective' or }." );
+        throwParseException( "Expected `color', `luminous', `reflective', "
+                             "`Kd', `Ks', `p' or }.");
     }
-  return new BasicMaterial( color, is_luminous, is_reflective );
+  return new BasicMaterial( color, is_luminous, is_reflective, Kd, Ks, p );
 }
 
 Material *Parser::parseMaterial()
@@ -733,6 +743,8 @@ Scene *Parser::parseScene(
       scene->setTimeSamplingFrequency( parseInteger() );
     else if ( peek( "samplingfrequency" ) )
       scene->setSamplingFrequency( parseInteger() );
+    else if ( peek( "indirectsamplingfrequency" ) )
+      scene->setIndirectSamplingFrequency( parseInteger() );
     else if ( peek( "shutter" ) )
       scene->setShutter( parseReal() );
     else if ( peek( "camera" ) )
@@ -760,6 +772,7 @@ Scene *Parser::parseScene(
     else
         throwParseException( "Expected `filename', `xres', `yres', `maxraydepth', `minattenuation', "
                              "`pixelsamplingfrequency', `lenssamplingfrequency', "
+                             "`timesamplingfrequency', `samplingfrequency', `indirectsamplingfrequency', "
                              "`camera', `background', `ambient', `light', `scene', or `define'." );
   }
   scene->setImage( new Image( xres, yres ) );
