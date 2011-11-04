@@ -149,6 +149,7 @@ class Scene {
   void preprocess();
   void render();
   void renderFast();
+  void renderPathTracing();
   double traceRay(Color& result, const RenderContext& context, const Ray& ray, const Color& attenuation, int depth) const;
   double traceRay(Color& result, const RenderContext& context, const Object* obj, const Ray& ray, const Color& attenuation, int depth) const;
 
@@ -177,7 +178,8 @@ class Scene {
   int sfreq;  // used in permutation based distributed ray tracing
   int ptfreq;  // used in indirect illumination
   double shutter;  // to-do: a camera parameter?
-  //std::vector<std::vector<Color> > buffer;
+  std::vector<std::vector<Color> > accumulator;  // accumulate colors from rays per pixel
+  std::vector<std::vector<Color> > buffer;  // accumulator / ptfreq -> normalization, other filters
 
 };
 

@@ -53,16 +53,21 @@ void BasicMaterial::shade(Color& result,
   //         indirectIlluminate(context, ray, hit, depth) * color;
   Color light = directIlluminate(context, ray, hit) +
                 indirectIlluminate(context, ray, hit, depth);
+  Color capped_light(min(1.0, light.r()),
+                     min(1.0, light.g()),
+                     min(1.0, light.b()));
+  result = capped_light * color;
+  /*
   double maxc = light.maxComponent();
   if (maxc > 1e-12)
     light /= maxc;
   result = light * color;
+  */
   //double maxc = result.maxComponent();
   //if (maxc > 1e-12)
   //  result /= maxc;
 }
 
-/*
 Color BasicMaterial::directIlluminate(const RenderContext& context,
                                       const Ray& ray,
                                       const HitRecord& hit) const {
@@ -90,7 +95,7 @@ Color BasicMaterial::directIlluminate(const RenderContext& context,
         world->intersect(shadowhit, context, shadowray);
         if (shadowhit.getPrimitive() == NULL) {  // hit nothing, visibility part II
           double BRDF = modifiedPhongBRDF(dir, normal, -ray.direction());
-          double inverse_square_distance = 1.0 / light_ray.length2();
+          double inverse_square_distance = min(1.0, 1.0 / light_ray.length2());
           ret = light_source.getColor() *
                  BRDF *
                  inverse_square_distance *
@@ -100,12 +105,13 @@ Color BasicMaterial::directIlluminate(const RenderContext& context,
     }
   }
 
+  /*
   double maxc = ret.maxComponent();
   if (maxc > 1e-12)
     ret /= maxc;
+  */
   return ret;
 }
-*/
 
 Color BasicMaterial::indirectIlluminate(const RenderContext& context,
                                         const Ray& ray,
@@ -144,9 +150,11 @@ Color BasicMaterial::indirectIlluminate(const RenderContext& context,
 
   ret *= 2.0 * M_PI;  // pair to uniform hemisphere sampling
 
+  /*
   double maxc = ret.maxComponent();
   if (maxc > 1e-12)
     ret /= maxc;
+  */
   return ret;
 }
 
@@ -191,6 +199,7 @@ Vector BasicMaterial::uniformSamplingOfHemisphere(
   return ret;
 }
 
+/*
 Color BasicMaterial::directIlluminate(const RenderContext& context,
                                       const Ray& ray,
                                       const HitRecord& hit) const {
@@ -221,7 +230,8 @@ Color BasicMaterial::directIlluminate(const RenderContext& context,
         world->intersect(shadowhit, context, shadowray);
         if (!shadowhit.getPrimitive()) {  // hit nothing, visibility part II
           double BRDF = modifiedPhongBRDF(dir, normal, -ray.direction());
-          double inverse_square_distance = 1.0 / light_rays[i].length2();
+          //double inverse_square_distance = 1.0 / light_rays[i].length2();
+          double inverse_square_distance = min(1.0, 1.0 / light_ray.length2());
           ratio += BRDF * inverse_square_distance;
         }
       }
@@ -236,6 +246,7 @@ Color BasicMaterial::directIlluminate(const RenderContext& context,
     ret /= maxc;
   return ret;
 }
+*/
 
 /*
 Color BasicMaterial::indirectIlluminate(const RenderContext& context,

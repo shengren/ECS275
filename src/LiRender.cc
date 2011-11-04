@@ -46,7 +46,8 @@ int main(int argc, char** argv)
 
   double t2 = Time::currentSeconds();
   //scene->render();
-  scene->renderFast();
+  //scene->renderFast();
+  scene->renderPathTracing();
 
   double t3 = Time::currentSeconds();
   scene->getImage()->write(filename);
