@@ -22,6 +22,9 @@ class Sphere : public Primitive {
   virtual void getSamples(std::vector<Vector>& rays,
                           const RenderContext& context,
                           const Point& hitpos) const {}
+  virtual void getSample(Vector& ray,
+                         const RenderContext& context,
+                         const Point& hitpos) const {}
 
  protected:
   Point initial_center;

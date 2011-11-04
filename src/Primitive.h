@@ -26,6 +26,9 @@ class Primitive : public Object {
   virtual void getSamples(std::vector<Vector>& rays,  // w/o normalization
                           const RenderContext& context,
                           const Point& hitpos) const = 0;
+  virtual void getSample(Vector& ray,
+                         const RenderContext& context,
+                         const Point& hitpos) const = 0;
   virtual Color getColor() const {
     return matl->getColor();
   }

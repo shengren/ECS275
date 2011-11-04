@@ -120,10 +120,12 @@ void Scene::render()
 
 void Scene::renderFast()
 {
+  /*
   if (sfreq <= 0) {  // used as a switch for permutation based distributed ray tracing
     render();
     return;
   }
+  */
 
   if(!object || !background || !camera || !image){
     cerr << "Incomplete scene, cannot render!\n";
@@ -174,17 +176,19 @@ void Scene::renderFast()
         object->move(tl[k]);
         HitRecord hit(DBL_MAX);
         object->intersect(hit, context, rays[k]);
-        Color c(0.0, 0.0, 0.0);
-        if (hit.getPrimitive()) {
-          const Material* matl = hit.getMaterial();
-          matl->shade(c, context, rays[k], hit, atten, 0);
-        } else {
-          background->getBackgroundColor(c, context, rays[k]);
+        for (int x = 0; x < ptfreq; ++x) {
+          Color c(0.0, 0.0, 0.0);
+          if (hit.getPrimitive()) {
+            const Material* matl = hit.getMaterial();
+            matl->shade(c, context, rays[k], hit, atten, 0);
+          } else {
+            background->getBackgroundColor(c, context, rays[k]);
+          }
+          buffer += c;
         }
-        buffer += c;
       }
 
-      image->set(i, j, buffer / total_per_pixel);
+      image->set(i, j, buffer / total_per_pixel / (double)ptfreq);
 
       // progress bar
       int pre = -1;

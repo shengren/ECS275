@@ -743,8 +743,8 @@ Scene *Parser::parseScene(
       scene->setTimeSamplingFrequency( parseInteger() );
     else if ( peek( "samplingfrequency" ) )
       scene->setSamplingFrequency( parseInteger() );
-    else if ( peek( "indirectsamplingfrequency" ) )
-      scene->setIndirectSamplingFrequency( parseInteger() );
+    else if ( peek( "pathtracingfrequency" ) )
+      scene->setPathTracingFrequency( parseInteger() );
     else if ( peek( "shutter" ) )
       scene->setShutter( parseReal() );
     else if ( peek( "camera" ) )
@@ -772,7 +772,7 @@ Scene *Parser::parseScene(
     else
         throwParseException( "Expected `filename', `xres', `yres', `maxraydepth', `minattenuation', "
                              "`pixelsamplingfrequency', `lenssamplingfrequency', "
-                             "`timesamplingfrequency', `samplingfrequency', `indirectsamplingfrequency', "
+                             "`timesamplingfrequency', `samplingfrequency', `pathtracingfrequency', "
                              "`camera', `background', `ambient', `light', `scene', or `define'." );
   }
   scene->setImage( new Image( xres, yres ) );

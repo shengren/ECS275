@@ -53,8 +53,142 @@ void BasicMaterial::shade(Color& result,
   //         indirectIlluminate(context, ray, hit, depth) * color;
   Color light = directIlluminate(context, ray, hit) +
                 indirectIlluminate(context, ray, hit, depth);
+  double maxc = light.maxComponent();
+  if (maxc > 1e-12)
+    light /= maxc;
   result = light * color;
-  result /= result.maxComponent();
+  //double maxc = result.maxComponent();
+  //if (maxc > 1e-12)
+  //  result /= maxc;
+}
+
+/*
+Color BasicMaterial::directIlluminate(const RenderContext& context,
+                                      const Ray& ray,
+                                      const HitRecord& hit) const {
+  const Scene* scene = context.getScene();
+  const Object* world = scene->getObject();
+  Point hitpos = ray.origin() + ray.direction() * hit.minT();
+  Vector normal;
+  hit.getPrimitive()->normal(normal, context, hitpos, ray, hit);
+  if (Dot(normal, ray.direction()) > 0.0)  // to-do: necessary?
+    normal = -normal;
+  Color ret(0.0, 0.0, 0.0);
+
+  // direct illumination - trace shadow rays to all area lights
+  const vector<Primitive*>& arealights = scene->getAreaLights();
+  for (int i = 0; i < arealights.size(); ++i) {  // to-do: randomly choose a light source
+    const Primitive& light_source = *(arealights[i]);
+    Vector light_ray;
+    light_source.getSample(light_ray, context, hitpos);
+    if (Dot(normal, light_ray) > 0) {  // visibility part I
+      HitRecord shadowhit(light_ray.length());
+      Vector dir = light_ray;
+      dir.normalize();
+      if (abs(Dot(dir, normal)) > 1e-12) {  // horizontal rays, to-do: cannot detect in intersect()
+        Ray shadowray(hitpos, dir);
+        world->intersect(shadowhit, context, shadowray);
+        if (shadowhit.getPrimitive() == NULL) {  // hit nothing, visibility part II
+          double BRDF = modifiedPhongBRDF(dir, normal, -ray.direction());
+          double inverse_square_distance = 1.0 / light_ray.length2();
+          ret = light_source.getColor() *
+                 BRDF *
+                 inverse_square_distance *
+                 light_source.getArea();
+        }
+      }
+    }
+  }
+
+  double maxc = ret.maxComponent();
+  if (maxc > 1e-12)
+    ret /= maxc;
+  return ret;
+}
+*/
+
+Color BasicMaterial::indirectIlluminate(const RenderContext& context,
+                                        const Ray& ray,
+                                        const HitRecord& hit,
+                                        const int depth) const {
+  const Scene* scene = context.getScene();
+  const Object* world = scene->getObject();
+  Point hitpos = ray.origin() + ray.direction() * hit.minT();
+  Vector normal;
+  hit.getPrimitive()->normal(normal, context, hitpos, ray, hit);
+  if (Dot(normal, ray.direction()) > 0.0)  // to-do: necessary?
+    normal = -normal;
+  Color ret(0.0, 0.0, 0.0);
+
+  // indirect illumination - path tracing
+  Vector dir = uniformSamplingOfHemisphere(normal, context);
+  Ray recursive_ray(hitpos, dir);
+  HitRecord recursive_hit(DBL_MAX);
+  world->intersect(recursive_hit, context, recursive_ray);
+  Color c(0.0, 0.0, 0.0);
+  if (recursive_hit.getPrimitive() != NULL &&
+      !(recursive_hit.getPrimitive()->isLuminous())) {
+    recursive_hit.getMaterial()->shade(c,
+                                       context,
+                                       recursive_ray,
+                                       recursive_hit,
+                                       Color(0.0, 0.0, 0.0),
+                                       depth + 1);
+    double BRDF = modifiedPhongBRDF(dir, normal, -ray.direction());
+    double cos = Dot(dir, normal);
+    ret = c * BRDF * cos;
+  } else {
+    scene->getBackground()->getBackgroundColor(c, context, recursive_ray);
+    ret = c;
+  }
+
+  ret *= 2.0 * M_PI;  // pair to uniform hemisphere sampling
+
+  double maxc = ret.maxComponent();
+  if (maxc > 1e-12)
+    ret /= maxc;
+  return ret;
+}
+
+Vector BasicMaterial::getPerfectSpecularDirection(Vector v, Vector n) const {
+  Vector s = n * (2.0 * Dot(v, n)) - v;
+  s.normalize();
+  return s;
+}
+
+double BasicMaterial::modifiedPhongBRDF(Vector in, Vector n, Vector out) const {
+  Vector s = getPerfectSpecularDirection(in, n);
+  double cos = Dot(out, s);
+  assert(cos <= 1.0);
+  return Kd + Ks * pow(cos, p);
+}
+
+Vector BasicMaterial::uniformSamplingOfHemisphere(
+    const Vector n,
+    const RenderContext& context) const {
+  // create the coordinate system around the hitpos based on its normal
+  Vector u;
+  if (abs(abs(n.x()) - 1.0) < 1e-12 &&
+      abs(n.y()) < 1e-12 &&
+      abs(n.z()) < 1e-12) {
+    u = Cross(n, Vector(0.0, 1.0, 0.0));
+  } else {
+    u = Cross(n, Vector(1.0, 0.0, 0.0));
+  }
+  u.normalize();
+  Vector v = Cross(u, n);
+  v.normalize();
+  // uniform sampling on unit hemisphere
+  double alpha = 2.0 * M_PI * context.generateRandomNumber();
+  double beta = 0.5 * M_PI * context.generateRandomNumber();
+  Point o(0.0, 0.0, 0.0);
+  Point sp = o +
+             u * (cos(beta) * cos(alpha)) +
+             v * (cos(beta) * sin(alpha)) +
+             n * sin(beta);
+  Vector ret = sp - o;
+  ret.normalize();
+  return ret;
 }
 
 Color BasicMaterial::directIlluminate(const RenderContext& context,
@@ -92,14 +226,18 @@ Color BasicMaterial::directIlluminate(const RenderContext& context,
         }
       }
     }
-    ratio = ratio * light_source.getArea() / light_rays.size();
+    ratio *= light_source.getArea() / (double)light_rays.size();
 
     ret += light_source.getColor() * ratio;
   }
 
+  double maxc = ret.maxComponent();
+  if (maxc > 1e-12)
+    ret /= maxc;
   return ret;
 }
 
+/*
 Color BasicMaterial::indirectIlluminate(const RenderContext& context,
                                         const Ray& ray,
                                         const HitRecord& hit,
@@ -147,44 +285,4 @@ Color BasicMaterial::indirectIlluminate(const RenderContext& context,
 
   return ret;
 }
-
-Vector BasicMaterial::getPerfectSpecularDirection(Vector v, Vector n) const {
-  Vector s = n * (2.0 * Dot(v, n)) - v;
-  s.normalize();
-  return s;
-}
-
-double BasicMaterial::modifiedPhongBRDF(Vector in, Vector n, Vector out) const {
-  Vector s = getPerfectSpecularDirection(in, n);
-  double cos = Dot(out, s);
-  assert(cos <= 1.0);
-  return Kd + Ks * pow(cos, p);
-}
-
-Vector BasicMaterial::uniformSamplingOfHemisphere(
-    const Vector n,
-    const RenderContext& context) const {
-  // create the coordinate system around the hitpos based on its normal
-  Vector u;
-  if (abs(abs(n.x()) - 1.0) < 1e-12 &&
-      abs(n.y()) < 1e-12 &&
-      abs(n.z()) < 1e-12) {
-    u = Cross(n, Vector(0.0, 1.0, 0.0));
-  } else {
-    u = Cross(n, Vector(1.0, 0.0, 0.0));
-  }
-  u.normalize();
-  Vector v = Cross(u, n);
-  v.normalize();
-  // uniform sampling on unit hemisphere
-  double alpha = 2.0 * M_PI * context.generateRandomNumber();
-  double beta = 0.5 * M_PI * context.generateRandomNumber();
-  Point o(0.0, 0.0, 0.0);
-  Point sp = o +
-             u * (cos(beta) * cos(alpha)) +
-             v * (cos(beta) * sin(alpha)) +
-             n * sin(beta);
-  Vector ret = sp - o;
-  ret.normalize();
-  return ret;
-}
+*/

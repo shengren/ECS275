@@ -26,6 +26,9 @@ class Polygon : public Primitive {
   virtual void getSamples(std::vector<Vector>& rays,  // from hitpos to samples w/o normalization
                           const RenderContext& context,
                           const Point& hitpos) const;
+  virtual void getSample(Vector& ray,
+                         const RenderContext& context,
+                         const Point& hitpos) const;
   virtual double getArea() const;
 
  private:
