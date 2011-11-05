@@ -48,6 +48,7 @@ void BasicMaterial::shade(Color& result,
   }
 
   result = doDirectIlluminate(context, ray, hit);
+  //result = doMultipleDirectIlluminate(context, ray, hit);
   //result = indirectIlluminate(context, ray, hit, depth) * color;
   //result = directIlluminate(context, ray, hit) * color +
   //         indirectIlluminate(context, ray, hit, depth) * color;
@@ -194,10 +195,10 @@ Color BasicMaterial::doMultipleDirectIlluminate(const RenderContext& context,
     light_source.getSamples(light_rays, context, hitpos);
 
     double ratio = 0.0;
-    for (int i = 0; i < light_rays.size(); ++i) {
-      if (Dot(normal, light_rays[i]) > 1e-10) {  // visibility part I
+    for (int j = 0; j < light_rays.size(); ++j) {
+      if (Dot(normal, light_rays[j]) > 1e-10) {  // visibility part I
         HitRecord shadowhit(DBL_MAX);
-        Vector dir = light_rays[i];
+        Vector dir = light_rays[j];
         dir.normalize();
         Ray shadowray(hitpos, dir);
         world->intersect(shadowhit, context, shadowray);
