@@ -47,30 +47,15 @@ void BasicMaterial::shade(Color& result,
     return;
   }
 
-  //result = directIlluminate(context, ray, hit) * color;
+  result = doDirectIlluminate(context, ray, hit);
   //result = indirectIlluminate(context, ray, hit, depth) * color;
   //result = directIlluminate(context, ray, hit) * color +
   //         indirectIlluminate(context, ray, hit, depth) * color;
-  Color light = directIlluminate(context, ray, hit) +
-                indirectIlluminate(context, ray, hit, depth);
-  Color capped_light(min(1.0, light.r()),
-                     min(1.0, light.g()),
-                     min(1.0, light.b()));
-  result = capped_light * color;
-  /*
-  double maxc = light.maxComponent();
-  if (maxc > 1e-12)
-    light /= maxc;
-  result = light * color;
-  */
-  //double maxc = result.maxComponent();
-  //if (maxc > 1e-12)
-  //  result /= maxc;
 }
 
-Color BasicMaterial::directIlluminate(const RenderContext& context,
-                                      const Ray& ray,
-                                      const HitRecord& hit) const {
+Color BasicMaterial::doDirectIlluminate(const RenderContext& context,
+                                        const Ray& ray,
+                                        const HitRecord& hit) const {
   const Scene* scene = context.getScene();
   const Object* world = scene->getObject();
   Point hitpos = ray.origin() + ray.direction() * hit.minT();
@@ -86,37 +71,32 @@ Color BasicMaterial::directIlluminate(const RenderContext& context,
     const Primitive& light_source = *(arealights[i]);
     Vector light_ray;
     light_source.getSample(light_ray, context, hitpos);
-    if (Dot(normal, light_ray) > 0) {  // visibility part I
-      HitRecord shadowhit(light_ray.length());
+    if (Dot(normal, light_ray) > 1e-10) {  // visibility part I
+      HitRecord shadowhit(DBL_MAX);
       Vector dir = light_ray;
       dir.normalize();
-      if (abs(Dot(dir, normal)) > 1e-12) {  // horizontal rays, to-do: cannot detect in intersect()
-        Ray shadowray(hitpos, dir);
-        world->intersect(shadowhit, context, shadowray);
-        if (shadowhit.getPrimitive() == NULL) {  // hit nothing, visibility part II
-          double BRDF = modifiedPhongBRDF(dir, normal, -ray.direction());
-          double inverse_square_distance = min(1.0, 1.0 / light_ray.length2());
-          ret = light_source.getColor() *
-                 BRDF *
-                 inverse_square_distance *
-                 light_source.getArea();
-        }
+      Ray shadowray(hitpos, dir);
+      world->intersect(shadowhit, context, shadowray);
+      assert(shadowhit.getPrimitive() != NULL);
+      if (shadowhit.getPrimitive() == arealights[i]) {  // hit the light source, visibility part II
+        //double BRDF = modifiedPhongBRDF(dir, normal, -ray.direction());
+        //double inverse_square_distance = min(1.0, 1.0 / light_ray.length2());
+        //ret = light_source.getColor() *
+        //       BRDF *
+        //       inverse_square_distance *
+        //       light_source.getArea();
+        ret = light_source.getColor();  // to-do: not support multiple lights
       }
     }
   }
 
-  /*
-  double maxc = ret.maxComponent();
-  if (maxc > 1e-12)
-    ret /= maxc;
-  */
-  return ret;
+  return ret * color;
 }
 
-Color BasicMaterial::indirectIlluminate(const RenderContext& context,
-                                        const Ray& ray,
-                                        const HitRecord& hit,
-                                        const int depth) const {
+Color BasicMaterial::doIndirectIlluminate(const RenderContext& context,
+                                          const Ray& ray,
+                                          const HitRecord& hit,
+                                          const int depth) const {
   const Scene* scene = context.getScene();
   const Object* world = scene->getObject();
   Point hitpos = ray.origin() + ray.direction() * hit.minT();
@@ -127,7 +107,7 @@ Color BasicMaterial::indirectIlluminate(const RenderContext& context,
   Color ret(0.0, 0.0, 0.0);
 
   // indirect illumination - path tracing
-  Vector dir = uniformSamplingOfHemisphere(normal, context);
+  Vector dir = SampleOfHemisphereUniform(normal, context);
   Ray recursive_ray(hitpos, dir);
   HitRecord recursive_hit(DBL_MAX);
   world->intersect(recursive_hit, context, recursive_ray);
@@ -140,7 +120,7 @@ Color BasicMaterial::indirectIlluminate(const RenderContext& context,
                                        recursive_hit,
                                        Color(0.0, 0.0, 0.0),
                                        depth + 1);
-    double BRDF = modifiedPhongBRDF(dir, normal, -ray.direction());
+    double BRDF = getModifiedPhongBRDF(dir, normal, -ray.direction());
     double cos = Dot(dir, normal);
     ret = c * BRDF * cos;
   } else {
@@ -150,11 +130,6 @@ Color BasicMaterial::indirectIlluminate(const RenderContext& context,
 
   ret *= 2.0 * M_PI;  // pair to uniform hemisphere sampling
 
-  /*
-  double maxc = ret.maxComponent();
-  if (maxc > 1e-12)
-    ret /= maxc;
-  */
   return ret;
 }
 
@@ -164,21 +139,21 @@ Vector BasicMaterial::getPerfectSpecularDirection(Vector v, Vector n) const {
   return s;
 }
 
-double BasicMaterial::modifiedPhongBRDF(Vector in, Vector n, Vector out) const {
+double BasicMaterial::getModifiedPhongBRDF(Vector in, Vector n, Vector out) const {
   Vector s = getPerfectSpecularDirection(in, n);
   double cos = Dot(out, s);
   assert(cos <= 1.0);
   return Kd + Ks * pow(cos, p);
 }
 
-Vector BasicMaterial::uniformSamplingOfHemisphere(
+Vector BasicMaterial::SampleOfHemisphereUniform(
     const Vector n,
     const RenderContext& context) const {
   // create the coordinate system around the hitpos based on its normal
   Vector u;
-  if (abs(abs(n.x()) - 1.0) < 1e-12 &&
-      abs(n.y()) < 1e-12 &&
-      abs(n.z()) < 1e-12) {
+  if (abs(abs(n.x()) - 1.0) < 1e-10 &&
+      abs(n.y()) < 1e-10 &&
+      abs(n.z()) < 1e-10) {
     u = Cross(n, Vector(0.0, 1.0, 0.0));
   } else {
     u = Cross(n, Vector(1.0, 0.0, 0.0));
@@ -199,10 +174,9 @@ Vector BasicMaterial::uniformSamplingOfHemisphere(
   return ret;
 }
 
-/*
-Color BasicMaterial::directIlluminate(const RenderContext& context,
-                                      const Ray& ray,
-                                      const HitRecord& hit) const {
+Color BasicMaterial::doMultipleDirectIlluminate(const RenderContext& context,
+                                                const Ray& ray,
+                                                const HitRecord& hit) const {
   const Scene* scene = context.getScene();
   const Object* world = scene->getObject();
   Point hitpos = ray.origin() + ray.direction() * hit.minT();
@@ -221,32 +195,30 @@ Color BasicMaterial::directIlluminate(const RenderContext& context,
 
     double ratio = 0.0;
     for (int i = 0; i < light_rays.size(); ++i) {
-      if (Dot(normal, light_rays[i]) > 0) {  // visibility part I
-        HitRecord shadowhit(light_rays[i].length());
+      if (Dot(normal, light_rays[i]) > 1e-10) {  // visibility part I
+        HitRecord shadowhit(DBL_MAX);
         Vector dir = light_rays[i];
         dir.normalize();
-        if (abs(Dot(dir, normal)) < 1e-12) continue;  // horizontal rays, to-do: cannot detect in intersect()
         Ray shadowray(hitpos, dir);
         world->intersect(shadowhit, context, shadowray);
-        if (!shadowhit.getPrimitive()) {  // hit nothing, visibility part II
-          double BRDF = modifiedPhongBRDF(dir, normal, -ray.direction());
+        assert(shadowhit.getPrimitive() != NULL);
+        if (shadowhit.getPrimitive() == arealights[i]) {  // hit the light source, visibility part II
+          //double BRDF = modifiedPhongBRDF(dir, normal, -ray.direction());
           //double inverse_square_distance = 1.0 / light_rays[i].length2();
-          double inverse_square_distance = min(1.0, 1.0 / light_ray.length2());
-          ratio += BRDF * inverse_square_distance;
+          //double inverse_square_distance = min(1.0, 1.0 / light_ray.length2());
+          //ratio += BRDF * inverse_square_distance;
+          ratio += 1.0;
         }
       }
     }
-    ratio *= light_source.getArea() / (double)light_rays.size();
+    //ratio *= light_source.getArea() / (double)light_rays.size();
+    ratio /= (double)light_rays.size();
 
-    ret += light_source.getColor() * ratio;
+    ret = light_source.getColor() * ratio;  // to-do: not support multiple lights
   }
 
-  double maxc = ret.maxComponent();
-  if (maxc > 1e-12)
-    ret /= maxc;
-  return ret;
+  return ret * color;
 }
-*/
 
 /*
 Color BasicMaterial::indirectIlluminate(const RenderContext& context,

@@ -328,7 +328,7 @@ void Scene::renderPathTracing()
 
   for (int iteration = 1; iteration <= ptfreq; ++iteration) {
     // progress bar
-    printf("\rRendering iteration %6d out of %6d", iteration, ptfreq);
+    printf("\rRendering iteration [%4d] out of [%4d]", iteration, ptfreq);
     fflush(stdout);
     // trace rays for all pixels
     for (int j = 0; j < yres; ++j) {
@@ -376,7 +376,8 @@ void Scene::renderPathTracing()
       }
     }
     // write out images
-    if (iteration == 1 || iteration == 10 || iteration == 50 ||
+    if (iteration == 1 || iteration == 5 || iteration == 10 ||
+        iteration == 20 || iteration == 50 ||
         iteration == ptfreq || iteration % 100 == 0) {
       // convert from accumulator to buffer
       for (int j = 0; j < yres; ++j) {

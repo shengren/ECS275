@@ -31,16 +31,19 @@ class BasicMaterial : public Material {
   BasicMaterial& operator=(const BasicMaterial&);
 
   Vector getPerfectSpecularDirection(Vector v, Vector n) const;
-  double modifiedPhongBRDF(Vector in, Vector n, Vector out) const;
-  Vector uniformSamplingOfHemisphere(const Vector n,
-                                     const RenderContext& context) const;
-  Color directIlluminate(const RenderContext& context,
-                         const Ray& ray,
-                         const HitRecord& hit) const;
-  Color indirectIlluminate(const RenderContext& context,
+  double getModifiedPhongBRDF(Vector in, Vector n, Vector out) const;
+  Vector SampleOfHemisphereUniform(const Vector n,
+                                   const RenderContext& context) const;
+  Color doDirectIlluminate(const RenderContext& context,
                            const Ray& ray,
-                           const HitRecord& hit,
-                           const int depth) const;
+                           const HitRecord& hit) const;
+  Color doIndirectIlluminate(const RenderContext& context,
+                             const Ray& ray,
+                             const HitRecord& hit,
+                             const int depth) const;
+  Color doMultipleDirectIlluminate(const RenderContext& context,
+                                   const Ray& ray,
+                                   const HitRecord& hit) const;
 
   Color color;
   bool is_luminous;

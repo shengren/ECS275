@@ -45,11 +45,9 @@ void Polygon::preprocess() {
   int num = point_list.size();
   for (int i = 0; i < num; ++i) {
     Vector t = Cross(point_list[i] - o, point_list[(i + 1) % num] - o);
-    double ta = t.length() * 0.5;
-    if (Dot(n, t) < 0.0) ta = -ta;
-    a += ta;
+    a += Dot(n, t);
   }
-  a = abs(a);
+  a = abs(a) * 0.5;
   assert(a > 0.0);
 }
 
@@ -58,7 +56,7 @@ void Polygon::getBounds(BoundingBox& bbox) const {
 
 void Polygon::intersect(HitRecord& hit, const RenderContext& context,
                         const Ray& ray) const {
-  if (Dot(ray.direction(), n) > -1e-12)  // >= 0
+  if (Dot(ray.direction(), n) > -1e-10)  // >= 0
     return;
   double t = Dot(point_list[0] - ray.origin(), n) / Dot(ray.direction(), n);
   if (t < 0.0)
@@ -69,10 +67,10 @@ void Polygon::intersect(HitRecord& hit, const RenderContext& context,
   for (int i = 0; i < point_list.size(); ++i) {
     Vector v1 = point_list[(i + 1) % point_list.size()] - point_list[i];
     Vector v2 = hitpos - point_list[i];
-    if (abs(v2.length2()) < 1e-12)  // ==0, on vertex
+    if (abs(v2.length2()) < 1e-20)  // ==0, on vertex
       break;
     Vector v = Cross(v1, v2);
-    if (abs(v.length2()) < 1e-12)  // ==0, on edge
+    if (abs(v.length2()) < 1e-20)  // ==0, on edge
       break;
     if (Dot(v, n) < 0.0) {
       inside = false;
@@ -103,7 +101,7 @@ void Polygon::getSamples(std::vector<Vector>& rays,
   if (point_list.size() == 4) {
     Vector u = point_list[0] - point_list[1];
     Vector v = point_list[2] - point_list[1];
-    if (((point_list[1] + (u + v)) - point_list[3]).length2() < 1e-12) {  // check if it is a parallelogram
+    if (((point_list[1] + (u + v)) - point_list[3]).length2() < 1e-20) {  // check if it is a parallelogram
       Vector du = u / (double)sf;
       Vector dv = v / (double)sf;
       for (int i = 0; i < sf; ++i)
