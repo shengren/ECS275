@@ -38,9 +38,9 @@ void BasicMaterial::shade(Color& result,
                           const HitRecord& hit,
                           const Color& atten,
                           int depth) const {
-  const Scene* scene = context.getScene();
-  if (depth > scene->getMaxRayDepth())
-    return;
+  //const Scene* scene = context.getScene();
+  //if (depth > scene->getMaxRayDepth())
+  //  return;
 
   if (is_luminous) {  // for objects can emit, workaround
     result = color;
@@ -50,8 +50,8 @@ void BasicMaterial::shade(Color& result,
   //Color direct = doDirectIlluminate(context, ray, hit);
   Color direct = doMultipleDirectIlluminate(context, ray, hit);
   Color indirect = doIndirectIlluminate(context, ray, hit, depth);
-  if (indirect.maxComponent() > 1.0)
-    indirect.normalize();
+  //if (indirect.maxComponent() > 1.0)
+  //  indirect.normalize();
   //indirect.truncate();
   result = direct + indirect;
   //result = direct;
@@ -113,6 +113,13 @@ Color BasicMaterial::doIndirectIlluminate(const RenderContext& context,
   Color ret(0.0, 0.0, 0.0);
 
   // indirect illumination - path tracing
+  double prr = color.maxComponent();
+  if (depth > scene->getMaxRayDepth()) {
+    if (context.generateRandomNumber() > prr)
+      return ret;  // black
+  } else {
+    prr = 1.0;
+  }
   //Vector dir = SampleOfHemisphereUniform(normal, context);
   Vector dir = SampleOfHemisphereCosine(normal, context);
   Ray recursive_ray(hitpos, dir);
@@ -146,6 +153,7 @@ Color BasicMaterial::doIndirectIlluminate(const RenderContext& context,
 
   //ret *= 2.0 * M_PI;  // pair to uniform hemisphere sampling
   ret *= M_PI;  // pair to cosine sampling on hemisphere
+  ret /= prr;  // for Russian Roulette
 
   return ret;
 }
@@ -271,52 +279,3 @@ Color BasicMaterial::doMultipleDirectIlluminate(const RenderContext& context,
   return ret;
 }
 
-/*
-Color BasicMaterial::indirectIlluminate(const RenderContext& context,
-                                        const Ray& ray,
-                                        const HitRecord& hit,
-                                        const int depth) const {
-  const Scene* scene = context.getScene();
-  const Object* world = scene->getObject();
-  Point hitpos = ray.origin() + ray.direction() * hit.minT();
-  Vector normal;
-  hit.getPrimitive()->normal(normal, context, hitpos, ray, hit);
-  if (Dot(normal, ray.direction()) > 0.0)  // to-do: necessary?
-    normal = -normal;
-  Color ret(0.0, 0.0, 0.0);
-
-  // indirect illumination - path tracing
-  const int freq = scene->getIndirectSamplingFrequency();
-  for (int i = 0; i < freq; ++i) {
-    int max_num_try = 16;  // to-do: necessary?
-    while (max_num_try--) {  // in case the random direction pointing to a light source
-      Vector dir = uniformSamplingOfHemisphere(normal, context);
-      Ray recursive_ray(hitpos, dir);
-      HitRecord recursive_hit(DBL_MAX);
-      world->intersect(recursive_hit, context, recursive_ray);
-      Color c(0.0, 0.0, 0.0);
-
-      if (recursive_hit.getPrimitive()) {
-        if (recursive_hit.getPrimitive()->isLuminous())  // hit a light source, turn of this when only indirect
-          continue;
-        recursive_hit.getMaterial()->shade(c,
-                                           context,
-                                           recursive_ray,
-                                           recursive_hit,
-                                           Color(0.0, 0.0, 0.0),
-                                           depth + 1);
-      } else {
-        scene->getBackground()->getBackgroundColor(c, context, recursive_ray);
-      }
-
-      double BRDF = modifiedPhongBRDF(dir, normal, -ray.direction());
-      double cos = Dot(dir, normal);
-      ret += c * BRDF * cos;
-      break;
-    }
-  }
-  ret *= 2.0 * M_PI / freq;  // pair to uniform hemisphere sampling
-
-  return ret;
-}
-*/
