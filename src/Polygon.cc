@@ -135,14 +135,16 @@ void Polygon::getSamples(std::vector<Vector>& rays,
 void Polygon::getSample(Vector& ray,
                         const RenderContext& context,
                         const Point& hitpos) const {
-  double rest = 1.0;
-  Point sp(0.0, 0.0, 0.0);
-  for (int i = 0; i < point_list.size() - 1; ++i) {  // except the last point in the list
-    double w = context.generateRandomNumber() * rest;
-    sp += point_list[i] * w;
-    rest -= w;
+  vector<double> weight(point_list.size());
+  double total = 0.0;
+  for (int i = 0; i < weight.size(); ++i) {
+    weight[i] = context.generateRandomNumber();
+    total += weight[i];
   }
-  sp += point_list[point_list.size() - 1] * rest;  // sum of weights = 1
+  Point sp(0.0, 0.0, 0.0);
+  for (int i = 0; i < point_list.size(); ++i) {
+    sp += point_list[i] * (weight[i] / total);
+  }
   ray = sp - hitpos;
 }
 

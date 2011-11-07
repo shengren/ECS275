@@ -53,10 +53,8 @@ void BasicMaterial::shade(Color& result,
   if (indirect.maxComponent() > 1.0)
     indirect.normalize();
   //indirect.truncate();
-  //indirect *= 0.1;
   result = direct + indirect;
-  //if (depth > 1 && result.maxComponent() > 1.0)
-  //  result.normalize();
+  //result = direct;
   result *= color;
 }
 
