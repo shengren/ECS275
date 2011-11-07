@@ -38,9 +38,9 @@ void BasicMaterial::shade(Color& result,
                           const HitRecord& hit,
                           const Color& atten,
                           int depth) const {
-  //const Scene* scene = context.getScene();
-  //if (depth > scene->getMaxRayDepth())
-  //  return;
+  const Scene* scene = context.getScene();
+  if (depth > scene->getMaxRayDepth() * 10)
+    return;
 
   if (is_luminous) {  // for objects can emit, workaround
     result = color;
@@ -120,39 +120,42 @@ Color BasicMaterial::doIndirectIlluminate(const RenderContext& context,
   } else {
     prr = 1.0;
   }
-  //Vector dir = SampleOfHemisphereUniform(normal, context);
-  Vector dir = SampleOfHemisphereCosine(normal, context);
+
+  Vector dir;
+  if (is_reflective) {
+    dir = getPerfectSpecularDirection(-ray.direction(), normal);
+  } else {
+    //dir = SampleOfHemisphereUniform(normal, context);
+    dir = SampleOfHemisphereCosine(normal, context);
+  }
+
   Ray recursive_ray(hitpos, dir);
   HitRecord recursive_hit(DBL_MAX);
   world->intersect(recursive_hit, context, recursive_ray);
   Color c(0.0, 0.0, 0.0);
   if (recursive_hit.getPrimitive() != NULL &&
-      !(recursive_hit.getPrimitive()->isLuminous())) {
+      !(recursive_hit.getPrimitive()->isLuminous())) {  // to-do: return black if hit a light source?
     recursive_hit.getMaterial()->shade(c,
                                        context,
                                        recursive_ray,
                                        recursive_hit,
                                        Color(0.0, 0.0, 0.0),
                                        depth + 1);
-    double BRDF = getModifiedPhongBRDF(dir, normal, -ray.direction());
-    //Point recursive_hitpos = recursive_ray.origin() +
-    //                         recursive_ray.direction() *
-    //                         recursive_hit.minT();
-    //Vector hit_normal;
-    //recursive_hit.getPrimitive()->normal(hit_normal, context, Point(),
-    //                                     recursive_ray, recursive_hit);  // to-do: shadow ray hit point is fake now
-    //double geom = getGeometry(normal, recursive_ray.direction() * hit.minT(), hit_normal);
-    //double cos = Dot(dir, normal);
-    //ret = c * BRDF * cos;
-    //ret = c * BRDF * geom;
-    ret = c * BRDF;  // pair to cosine sampling on hemisphere
+    ret = c;  // pair to cosine sampling on hemisphere
   } else {
     scene->getBackground()->getBackgroundColor(c, context, recursive_ray);
     ret = c;
   }
+  double BRDF = getModifiedPhongBRDF(dir, normal, -ray.direction());
+  ret *= BRDF;
 
-  //ret *= 2.0 * M_PI;  // pair to uniform hemisphere sampling
-  ret *= M_PI;  // pair to cosine sampling on hemisphere
+  if (is_reflective) {
+    ret *= Dot(normal, dir);
+  } else {
+    //ret *= 2.0 * M_PI;  // pair to uniform hemisphere sampling
+    ret *= M_PI;  // pair to cosine sampling on hemisphere
+  }
+
   ret /= prr;  // for Russian Roulette
 
   return ret;
@@ -167,7 +170,7 @@ Vector BasicMaterial::getPerfectSpecularDirection(Vector v, Vector n) const {
 double BasicMaterial::getModifiedPhongBRDF(Vector in, Vector n, Vector out) const {
   Vector s = getPerfectSpecularDirection(in, n);
   double cos = Dot(out, s);
-  assert(cos <= 1.0);
+  cos = (cos > 1.0) ? 1.0 : cos;
   return Kd + Ks * pow(cos, p);
 }
 
