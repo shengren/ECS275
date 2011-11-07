@@ -50,8 +50,8 @@ void BasicMaterial::shade(Color& result,
   //Color direct = doDirectIlluminate(context, ray, hit);
   Color direct = doMultipleDirectIlluminate(context, ray, hit);
   Color indirect = doIndirectIlluminate(context, ray, hit, depth);
-  //if (indirect.maxComponent() > 1.0)
-  //  indirect.normalize();
+  if (indirect.maxComponent() > 1.0)
+    indirect.normalize();
   //indirect.truncate();
   result = direct + indirect;
   //result = direct;
