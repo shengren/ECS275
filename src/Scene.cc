@@ -288,7 +288,7 @@ vector<double> Scene::sampleOnTime(const RenderContext& context) {
 void Scene::renderPathTracing()
 {
   // to-do: not support these effects now
-  assert(psfreq == 0);
+  assert(psfreq == 0 || psfreq == 1);
   assert(lsfreq == 0);
   assert(tsfreq == 0);
   assert(sfreq == 0);
@@ -390,6 +390,7 @@ void Scene::renderPathTracing()
       // write images
       for (int j = 0; j < yres; ++j) {
         for (int i = 0; i < xres; ++i) {
+          buffer[i][j].clamp();
           image->set(i, j, buffer[i][j]);
         }
       }
