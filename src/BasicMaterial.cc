@@ -47,11 +47,17 @@ void BasicMaterial::shade(Color& result,
     return;
   }
 
-  result = doDirectIlluminate(context, ray, hit);
-  //result = doMultipleDirectIlluminate(context, ray, hit);
-  //result = indirectIlluminate(context, ray, hit, depth) * color;
-  //result = directIlluminate(context, ray, hit) * color +
-  //         indirectIlluminate(context, ray, hit, depth) * color;
+  //Color direct = doDirectIlluminate(context, ray, hit);
+  Color direct = doMultipleDirectIlluminate(context, ray, hit);
+  Color indirect = doIndirectIlluminate(context, ray, hit, depth);
+  if (indirect.maxComponent() > 1.0)
+    indirect.normalize();
+  //indirect.truncate();
+  //indirect *= 0.1;
+  result = direct + indirect;
+  //if (depth > 1 && result.maxComponent() > 1.0)
+  //  result.normalize();
+  result *= color;
 }
 
 Color BasicMaterial::doDirectIlluminate(const RenderContext& context,
@@ -80,18 +86,19 @@ Color BasicMaterial::doDirectIlluminate(const RenderContext& context,
       world->intersect(shadowhit, context, shadowray);
       assert(shadowhit.getPrimitive() != NULL);
       if (shadowhit.getPrimitive() == arealights[i]) {  // hit the light source, visibility part II
-        //double BRDF = modifiedPhongBRDF(dir, normal, -ray.direction());
-        //double inverse_square_distance = min(1.0, 1.0 / light_ray.length2());
-        //ret = light_source.getColor() *
-        //       BRDF *
-        //       inverse_square_distance *
-        //       light_source.getArea();
+        double BRDF = getModifiedPhongBRDF(dir, normal, -ray.direction());
+        Vector light_normal;
+        light_source.normal(light_normal, context, Point(),
+                            shadowray, shadowhit);  // to-do: shadow ray hit point is fake now
+        double geom = getGeometry(normal, light_ray, light_normal);
         ret = light_source.getColor();  // to-do: not support multiple lights
+        ret *= BRDF;
+        ret *= geom * light_source.getArea();
       }
     }
   }
 
-  return ret * color;
+  return ret;
 }
 
 Color BasicMaterial::doIndirectIlluminate(const RenderContext& context,
@@ -108,7 +115,8 @@ Color BasicMaterial::doIndirectIlluminate(const RenderContext& context,
   Color ret(0.0, 0.0, 0.0);
 
   // indirect illumination - path tracing
-  Vector dir = SampleOfHemisphereUniform(normal, context);
+  //Vector dir = SampleOfHemisphereUniform(normal, context);
+  Vector dir = SampleOfHemisphereCosine(normal, context);
   Ray recursive_ray(hitpos, dir);
   HitRecord recursive_hit(DBL_MAX);
   world->intersect(recursive_hit, context, recursive_ray);
@@ -122,14 +130,24 @@ Color BasicMaterial::doIndirectIlluminate(const RenderContext& context,
                                        Color(0.0, 0.0, 0.0),
                                        depth + 1);
     double BRDF = getModifiedPhongBRDF(dir, normal, -ray.direction());
-    double cos = Dot(dir, normal);
-    ret = c * BRDF * cos;
+    //Point recursive_hitpos = recursive_ray.origin() +
+    //                         recursive_ray.direction() *
+    //                         recursive_hit.minT();
+    //Vector hit_normal;
+    //recursive_hit.getPrimitive()->normal(hit_normal, context, Point(),
+    //                                     recursive_ray, recursive_hit);  // to-do: shadow ray hit point is fake now
+    //double geom = getGeometry(normal, recursive_ray.direction() * hit.minT(), hit_normal);
+    //double cos = Dot(dir, normal);
+    //ret = c * BRDF * cos;
+    //ret = c * BRDF * geom;
+    ret = c * BRDF;  // pair to cosine sampling on hemisphere
   } else {
     scene->getBackground()->getBackgroundColor(c, context, recursive_ray);
     ret = c;
   }
 
-  ret *= 2.0 * M_PI;  // pair to uniform hemisphere sampling
+  //ret *= 2.0 * M_PI;  // pair to uniform hemisphere sampling
+  ret *= M_PI;  // pair to cosine sampling on hemisphere
 
   return ret;
 }
@@ -145,6 +163,11 @@ double BasicMaterial::getModifiedPhongBRDF(Vector in, Vector n, Vector out) cons
   double cos = Dot(out, s);
   assert(cos <= 1.0);
   return Kd + Ks * pow(cos, p);
+}
+
+double BasicMaterial::getGeometry(Vector ns, Vector sray, Vector nl) const {
+  double dist = sray.normalize();
+  return Dot(ns, sray) * Dot(nl, -sray) / (dist * dist);
 }
 
 Vector BasicMaterial::SampleOfHemisphereUniform(
@@ -163,13 +186,40 @@ Vector BasicMaterial::SampleOfHemisphereUniform(
   Vector v = Cross(u, n);
   v.normalize();
   // uniform sampling on unit hemisphere
-  double alpha = 2.0 * M_PI * context.generateRandomNumber();
-  double beta = 0.5 * M_PI * context.generateRandomNumber();
+  double phi = 2.0 * M_PI * context.generateRandomNumber();
+  double theta = 0.5 * M_PI * context.generateRandomNumber();
   Point o(0.0, 0.0, 0.0);
   Point sp = o +
-             u * (cos(beta) * cos(alpha)) +
-             v * (cos(beta) * sin(alpha)) +
-             n * sin(beta);
+             u * (sin(theta) * cos(phi)) +
+             v * (sin(theta) * sin(phi)) +
+             n * cos(theta);
+  Vector ret = sp - o;
+  ret.normalize();
+  return ret;
+}
+
+Vector BasicMaterial::SampleOfHemisphereCosine(const Vector n,
+                                               const RenderContext& context) const {
+  // create the coordinate system around the hitpos based on its normal
+  Vector u;
+  if (abs(abs(n.x()) - 1.0) < 1e-10 &&
+      abs(n.y()) < 1e-10 &&
+      abs(n.z()) < 1e-10) {
+    u = Cross(n, Vector(0.0, 1.0, 0.0));
+  } else {
+    u = Cross(n, Vector(1.0, 0.0, 0.0));
+  }
+  u.normalize();
+  Vector v = Cross(u, n);
+  v.normalize();
+  // cosine sampling on unit hemisphere
+  double phi = 2.0 * M_PI * context.generateRandomNumber();
+  double r2 = context.generateRandomNumber();
+  Point o(0.0, 0.0, 0.0);
+  Point sp = o +
+             u * (sqrt(1.0 - r2) * cos(phi)) +
+             v * (sqrt(1.0 - r2) * sin(phi)) +
+             n * sqrt(r2);
   Vector ret = sp - o;
   ret.normalize();
   return ret;
@@ -204,21 +254,23 @@ Color BasicMaterial::doMultipleDirectIlluminate(const RenderContext& context,
         world->intersect(shadowhit, context, shadowray);
         assert(shadowhit.getPrimitive() != NULL);
         if (shadowhit.getPrimitive() == arealights[i]) {  // hit the light source, visibility part II
-          //double BRDF = modifiedPhongBRDF(dir, normal, -ray.direction());
-          //double inverse_square_distance = 1.0 / light_rays[i].length2();
-          //double inverse_square_distance = min(1.0, 1.0 / light_ray.length2());
-          //ratio += BRDF * inverse_square_distance;
-          ratio += 1.0;
+          double BRDF = getModifiedPhongBRDF(dir, normal, -ray.direction());
+          Vector light_normal;
+          light_source.normal(light_normal, context, Point(),
+                              shadowray, shadowhit);  // to-do: shadow ray hit point is fake now
+          double geom = getGeometry(normal, light_rays[j], light_normal);
+          ratio += BRDF * geom;
+          //ratio += 1.0;
         }
       }
     }
-    //ratio *= light_source.getArea() / (double)light_rays.size();
-    ratio /= (double)light_rays.size();
+    ratio *= light_source.getArea() / (double)light_rays.size();
+    //ratio /= (double)light_rays.size();
 
     ret = light_source.getColor() * ratio;  // to-do: not support multiple lights
   }
 
-  return ret * color;
+  return ret;
 }
 
 /*

@@ -32,8 +32,11 @@ class BasicMaterial : public Material {
 
   Vector getPerfectSpecularDirection(Vector v, Vector n) const;
   double getModifiedPhongBRDF(Vector in, Vector n, Vector out) const;
+  double getGeometry(Vector ns, Vector sray, Vector nl) const;
   Vector SampleOfHemisphereUniform(const Vector n,
                                    const RenderContext& context) const;
+  Vector SampleOfHemisphereCosine(const Vector n,
+                                  const RenderContext& context) const;
   Color doDirectIlluminate(const RenderContext& context,
                            const Ray& ray,
                            const HitRecord& hit) const;

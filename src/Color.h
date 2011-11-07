@@ -92,6 +92,19 @@ class Color {
   float maxComponent() const {
     return Max(data[0], data[1], data[2]);
   }
+  void normalize() {
+    float mc = maxComponent();
+    if (mc > 1e-10) {
+      data[0] /= mc;
+      data[1] /= mc;
+      data[2] /= mc;
+    }
+  }
+  void truncate() {
+    data[0] = (data[0] > 1.0) ? 1.0 : data[0];
+    data[1] = (data[1] > 1.0) ? 1.0 : data[1];
+    data[2] = (data[2] > 1.0) ? 1.0 : data[2];
+  }
 
  private:
   float data[3];
