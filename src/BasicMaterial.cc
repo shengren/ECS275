@@ -50,13 +50,8 @@ void BasicMaterial::shade(Color& result,
   //Color direct = doDirectIlluminate(context, ray, hit);
   Color direct = doMultipleDirectIlluminate(context, ray, hit);
   Color indirect = doIndirectIlluminate(context, ray, hit, depth);
-  //if (indirect.maxComponent() > 1.0)
-  //  indirect.normalize();
-  //indirect.truncate();
   result = direct + indirect;
   //result = direct;
-  //if (result.maxComponent() > 1.0)
-  //  result.normalize();
   result *= color;
 }
 
@@ -74,35 +69,36 @@ Color BasicMaterial::doDirectIlluminate(const RenderContext& context,
 
   // direct illumination - trace shadow rays to all area lights
   const vector<Primitive*>& arealights = scene->getAreaLights();
-  for (int i = 0; i < arealights.size(); ++i) {  // to-do: randomly choose a light source
-    const Primitive& light_source = *(arealights[i]);
-    Vector light_ray;
-    light_source.getSample(light_ray, context, hitpos);
-    if (Dot(normal, light_ray) > 1e-10) {  // visibility part I
-      HitRecord shadowhit(DBL_MAX);
-      Vector dir = light_ray;
-      dir.normalize();
-      Ray shadowray(hitpos, dir);
-      world->intersect(shadowhit, context, shadowray);
-      assert(shadowhit.getPrimitive() != NULL);
-      if (shadowhit.getPrimitive() == arealights[i]) {  // hit the light source, visibility part II
-        double BRDF;
-        if (is_reflective) {
-          BRDF = getSpecularBRDF(dir, normal, -ray.direction());
-        } else {
-          //BRDF = getModifiedPhongBRDF(dir, normal, -ray.direction());
-          BRDF = getDiffusiveBRDF();
-        }
-        Vector light_normal;
-        Point light_hitpos = shadowray.origin() +
-                             shadowray.direction() * shadowhit.minT();
-        light_source.normal(light_normal, context, light_hitpos,
-                            shadowray, shadowhit);  // to-do: shadow ray hit point is fake now
-        double geom = getGeometry(normal, light_ray, light_normal);
-        ret = light_source.getColor();  // to-do: not support multiple lights
-        ret *= BRDF;
-        ret *= geom * light_source.getArea();
+  int i = (int)(arealights.size() * context.generateRandomNumber());  // uniformly pick a light source
+
+  const Primitive& light_source = *(arealights[i]);
+  Vector light_ray;
+  light_source.getSample(light_ray, context, hitpos);
+  if (Dot(normal, light_ray) > 1e-10) {  // visibility part I
+    HitRecord shadowhit(DBL_MAX);
+    Vector dir = light_ray;
+    dir.normalize();
+    Ray shadowray(hitpos, dir);
+    world->intersect(shadowhit, context, shadowray);
+    assert(shadowhit.getPrimitive() != NULL);
+    if (shadowhit.getPrimitive() == arealights[i]) {  // hit the light source, visibility part II
+      double BRDF;
+      if (is_reflective) {
+        BRDF = getSpecularBRDF(dir, normal, -ray.direction());
+      } else {
+        //BRDF = getModifiedPhongBRDF(dir, normal, -ray.direction());
+        BRDF = getDiffusiveBRDF();
       }
+      Vector light_normal;
+      Point light_hitpos = shadowray.origin() +
+        shadowray.direction() * shadowhit.minT();
+      light_source.normal(light_normal, context, light_hitpos,
+                          shadowray, shadowhit);
+      double geom = getGeometry(normal, light_ray, light_normal);
+      ret = light_source.getColor();
+      ret *= BRDF;
+      ret *= geom * light_source.getArea();
+      ret *= (double)arealights.size();
     }
   }
 
@@ -168,7 +164,7 @@ Color BasicMaterial::doIndirectIlluminate(const RenderContext& context,
   if (is_reflective) {
     ret *= Dot(normal, dir);
   } else {
-    //ret *= 2.0 * M_PI;  // pair to uniform hemisphere sampling
+    //ret *= 2.0 * M_PI * Dot(normal, dir);  // pair to uniform hemisphere sampling
     ret *= M_PI;  // pair to cosine sampling on hemisphere
   }
 
@@ -275,44 +271,45 @@ Color BasicMaterial::doMultipleDirectIlluminate(const RenderContext& context,
 
   // direct illumination - trace shadow rays to all area lights
   const vector<Primitive*>& arealights = scene->getAreaLights();
-  for (int i = 0; i < arealights.size(); ++i) {
-    const Primitive& light_source = *(arealights[i]);
-    vector<Vector> light_rays;  // not only the direction but also the distance
-    light_source.getSamples(light_rays, context, hitpos);
+  int i = (int)(arealights.size() * context.generateRandomNumber());  // uniformly pick a light source
 
-    double ratio = 0.0;
-    for (int j = 0; j < light_rays.size(); ++j) {
-      if (Dot(normal, light_rays[j]) > 1e-10) {  // visibility part I
-        HitRecord shadowhit(DBL_MAX);
-        Vector dir = light_rays[j];
-        dir.normalize();
-        Ray shadowray(hitpos, dir);
-        world->intersect(shadowhit, context, shadowray);
-        assert(shadowhit.getPrimitive() != NULL);
-        if (shadowhit.getPrimitive() == arealights[i]) {  // hit the light source, visibility part II
-          double BRDF;
-          if (is_reflective) {
-            BRDF = getSpecularBRDF(dir, normal, -ray.direction());
-          } else {
-            //BRDF = getModifiedPhongBRDF(dir, normal, -ray.direction());
-            BRDF = getDiffusiveBRDF();
-          }
-          Vector light_normal;
-          Point light_hitpos = shadowray.origin() +
-                               shadowray.direction() * shadowhit.minT();
-          light_source.normal(light_normal, context, light_hitpos,
-                              shadowray, shadowhit);  // to-do: shadow ray hit point is fake now
-          double geom = getGeometry(normal, light_rays[j], light_normal);
-          ratio += BRDF * geom;
-          //ratio += 1.0;
+  const Primitive& light_source = *(arealights[i]);
+  vector<Vector> light_rays;  // not only the direction but also the distance
+  light_source.getSamples(light_rays, context, hitpos);
+
+  double ratio = 0.0;
+  for (int j = 0; j < light_rays.size(); ++j) {
+    if (Dot(normal, light_rays[j]) > 1e-10) {  // visibility part I
+      HitRecord shadowhit(DBL_MAX);
+      Vector dir = light_rays[j];
+      dir.normalize();
+      Ray shadowray(hitpos, dir);
+      world->intersect(shadowhit, context, shadowray);
+      assert(shadowhit.getPrimitive() != NULL);
+      if (shadowhit.getPrimitive() == arealights[i]) {  // hit the light source, visibility part II
+        double BRDF;
+        if (is_reflective) {
+          BRDF = getSpecularBRDF(dir, normal, -ray.direction());
+        } else {
+          //BRDF = getModifiedPhongBRDF(dir, normal, -ray.direction());
+          BRDF = getDiffusiveBRDF();
         }
+        Vector light_normal;
+        Point light_hitpos = shadowray.origin() +
+          shadowray.direction() * shadowhit.minT();
+        light_source.normal(light_normal, context, light_hitpos,
+                            shadowray, shadowhit);
+        double geom = getGeometry(normal, light_rays[j], light_normal);
+        ratio += BRDF * geom;
+        //ratio += 1.0;
       }
     }
-    ratio *= light_source.getArea() / (double)light_rays.size();
-    //ratio /= (double)light_rays.size();
-
-    ret = light_source.getColor() * ratio;  // to-do: not support multiple lights
   }
+  ratio *= light_source.getArea() / (double)light_rays.size();
+  //ratio /= (double)light_rays.size();
+  ratio *= (double)arealights.size();
+
+  ret = light_source.getColor() * ratio;
 
   return ret;
 }

@@ -77,9 +77,6 @@ void Sphere::normal(Vector& normal, const RenderContext&, const Point& hitpos,
 {
   normal = (hitpos-center)*inv_radius;
   double dist = normal.normalize();
-  //if (abs(dist - 0.0) > 1e-10)
-  //  printf("%.20f\n", dist);
-  //assert(abs(normal.normalize() - 0.0) < 1e-10);
 }
 
 void Sphere::move(double dt)
@@ -95,7 +92,12 @@ void Sphere::getSamples(std::vector<Vector>& rays,
   for (int i = 0; i < sf * sf; ++i) {
     double theta = M_PI * context.generateRandomNumber();
     double phi = 2.0 * M_PI * context.generateRandomNumber();
-    Point sp(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
+    Vector sdir(sin(theta) * cos(phi),
+                sin(theta) * sin(phi),
+                cos(theta));
+    Point sp = center + sdir * radius;
+    if (Dot(hitpos - center, sp - center) < 0.0)
+      sp = center + (-sdir) * radius;
     rays.push_back(sp - hitpos);
   }
 }
@@ -105,11 +107,16 @@ void Sphere::getSample(Vector& ray,
                        const Point& hitpos) const {
   double theta = M_PI * context.generateRandomNumber();
   double phi = 2.0 * M_PI * context.generateRandomNumber();
-  Point sp(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
+  Vector sdir(sin(theta) * cos(phi),
+              sin(theta) * sin(phi),
+              cos(theta));
+  Point sp = center + sdir * radius;
+  if (Dot(hitpos - center, sp - center) < 0.0)
+    sp = center + (-sdir) * radius;
   ray = sp - hitpos;
 }
 
 double Sphere::getArea() const {
-  //printf("area=%lf\n", a);
-  return a;
+  return a * 0.5;  // because samples are always on the front side w.r.t. shadow rays
+  //return a;
 }
