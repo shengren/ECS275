@@ -1,0 +1,227 @@
+// Modifications based on http://www.graphics.cornell.edu/online/box/data.html
+
+xres 512
+yres 512
+filename "image.ppm"
+maxraydepth 5
+pixelsamplingfrequency 1
+lenssamplingfrequency 0
+timesamplingfrequency 0
+samplingfrequency 0
+pathtracingfrequency 5000
+shutter 1.0
+
+camera thinlens {
+  center [ 278, 273, -800 ]
+  shoot_at [ 278, 273, -799 ]
+  up [ 0, 1, 0 ]
+  hfov 30
+  aperture 0.0125
+  focal_dist 0.035
+}
+
+background constant {
+  color [ 0.0, 0.0, 0.0 ]
+}
+
+scene group {
+  polygon {  // area light
+    material basic {
+      color [ 60, 60, 60 ]
+      luminous true
+      reflective false
+    }
+    luminous true
+    frequency 2
+    points 4
+    [ 213, 548.8, 227 ]
+    [ 343, 548.8, 227 ]
+    [ 343, 548.8, 332 ]
+    [ 213, 548.8, 332 ]
+  }
+  polygon {  // ceiling part 0
+    material basic {
+      color [ 0.75, 0.75, 0.75 ]
+      luminous false
+      reflective false
+      Kd 0.6
+      Ks 0.3
+      p 20
+    }
+    points 4
+    [ 0, 548.8, 0 ]
+    [ 556, 548.8, 0 ]
+    [ 556, 548.8, 227 ]
+    [ 0, 548.8, 227 ]
+  }
+  polygon {  // ceiling part 1
+    material basic {
+      color [ 0.75, 0.75, 0.75 ]
+      luminous false
+      reflective false
+      Kd 0.6
+      Ks 0.3
+      p 20
+    }
+    points 4
+    [ 0, 548.8, 332 ]
+    [ 556, 548.8, 332 ]
+    [ 556, 548.8, 559.2 ]
+    [ 0, 548.8, 559.2 ]
+  }
+  polygon {  // ceiling part 2
+    material basic {
+      color [ 0.75, 0.75, 0.75 ]
+      luminous false
+      reflective false
+      Kd 0.6
+      Ks 0.3
+      p 20
+    }
+    points 4
+    [ 0, 548.8, 227 ]
+    [ 213, 548.8, 227 ]
+    [ 213, 548.8, 332 ]
+    [ 0, 548.8, 332 ]
+  }
+  polygon {  // ceiling part 3
+    material basic {
+      color [ 0.75, 0.75, 0.75 ]
+      luminous false
+      reflective false
+      Kd 0.6
+      Ks 0.3
+      p 20
+    }
+    points 4
+    [ 343, 548.8, 227 ]
+    [ 556, 548.8, 227 ]
+    [ 556, 548.8, 332 ]
+    [ 343, 548.8, 332 ]
+  }
+  polygon {  // floor
+    material basic {
+      color [ 0.75, 0.75, 0.75 ]
+      luminous false
+      reflective false
+      Kd 0.6
+      Ks 0.3
+      p 20
+    }
+    points 4
+    [ 556.0, 0.0, 0.0 ]
+    [ 0.0, 0.0, 0.0 ]
+    [ 0.0, 0.0, 559.2 ]
+    [ 556.0, 0.0, 559.2 ]
+  }
+  polygon {  // back wall
+    material basic {
+      color [ 0.75, 0.75, 0.75 ]
+      luminous false
+      reflective false
+      Kd 0.6
+      Ks 0.3
+      p 20
+    }
+    points 4
+    [ 556.0, 0.0, 559.2 ]
+    [ 0.0, 0.0, 559.2 ]
+    [ 0.0, 548.8, 559.2 ]
+    [ 556.0, 548.8, 559.2 ]
+  }
+  polygon {  // front wall
+    material basic {
+      color [ 0.75, 0.75, 0.75 ]
+      luminous false
+      reflective false
+      Kd 0.6
+      Ks 0.3
+      p 20
+    }
+    points 4
+    [ 556.0, 548.8, 0.0 ]
+    [ 0.0, 548.8, 0.0 ]
+    [ 0.0, 0.0, 0.0 ]
+    [ 556.0, 0.0, 0.0 ]
+  }
+  polygon {  // right wall
+    material basic {
+      color [ 0.75, 0.75, 0.75 ]
+      luminous false
+      reflective false
+      Kd 0.6
+      Ks 0.3
+      p 20
+    }
+    points 4
+    [ 0.0, 0.0, 559.2 ]
+    [ 0.0, 0.0, 0.0 ]
+    [ 0.0, 548.8, 0.0 ]
+    [ 0.0, 548.8, 559.2 ]
+  }
+  polygon {  // left wall
+    material basic {
+      color [ 0.75, 0.75, 0.75 ]
+      luminous false
+      reflective false
+      Kd 0.6
+      Ks 0.3
+      p 20
+    }
+    points 4
+    [ 556.0, 0.0, 0.0 ]
+    [ 556.0, 0.0, 559.2 ]
+    [ 556.0, 548.8, 559.2 ]
+    [ 556.0, 548.8, 0.0 ]
+  }
+  polygon {  // floor
+    material basic {
+      color [ 0.75, 0.75, 0.75 ]
+      luminous false
+      reflective false
+      Kd 0.6
+      Ks 0.3
+      p 20
+    }
+    points 4
+    [ 556.0, 0.0, 0.0 ]
+    [ 0.0, 0.0, 0.0 ]
+    [ 0.0, 0.0, 559.2 ]
+    [ 556.0, 0.0, 559.2 ]
+  }
+  sphere {  // right ball, green
+    material basic {
+      color [ 0.25, 0.75, 0.25 ]
+      luminous false
+      reflective false
+      Kd 0.6
+      Ks 0.3
+      p 20
+    }
+    center [ 100, 80, 470 ]
+    radius 80
+  }
+  sphere {  // middle ball, area light
+    material basic {
+      color [ 5, 5, 5 ]
+      luminous true
+      reflective false
+    }
+    luminous true
+    frequency 2
+    center [ 278, 80, 470 ]
+    radius 80
+  }
+  sphere {  // left ball, red
+    material basic {
+      color [ 0.75, 0.25, 0.25 ]
+      luminous false
+      reflective false
+      Kd 0.6
+      Ks 0.3
+      p 20
+    }
+    center [ 456, 80, 470 ]
+    radius 80
+  }
+}

@@ -1,0 +1,7 @@
+for f in *.scn
+do
+  echo $f
+  fn=${f%.*}
+  ./lirender $f
+  convert image.ppm ${fn}.png
+done
