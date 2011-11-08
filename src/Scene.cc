@@ -330,6 +330,7 @@ void Scene::renderPathTracing()
     // progress bar
     printf("\rRendering iteration [%4d] out of [%4d]", iteration, ptfreq);
     fflush(stdout);
+#pragma omp parallel for
     // trace rays for all pixels
     for (int j = 0; j < yres; ++j) {
       for (int i = 0; i < xres; ++i) {

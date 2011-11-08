@@ -50,11 +50,13 @@ void BasicMaterial::shade(Color& result,
   //Color direct = doDirectIlluminate(context, ray, hit);
   Color direct = doMultipleDirectIlluminate(context, ray, hit);
   Color indirect = doIndirectIlluminate(context, ray, hit, depth);
-  if (indirect.maxComponent() > 1.0)
-    indirect.normalize();
+  //if (indirect.maxComponent() > 1.0)
+  //  indirect.normalize();
   //indirect.truncate();
   result = direct + indirect;
   //result = direct;
+  //if (result.maxComponent() > 1.0)
+  //  result.normalize();
   result *= color;
 }
 
@@ -84,9 +86,17 @@ Color BasicMaterial::doDirectIlluminate(const RenderContext& context,
       world->intersect(shadowhit, context, shadowray);
       assert(shadowhit.getPrimitive() != NULL);
       if (shadowhit.getPrimitive() == arealights[i]) {  // hit the light source, visibility part II
-        double BRDF = getModifiedPhongBRDF(dir, normal, -ray.direction());
+        double BRDF;
+        if (is_reflective) {
+          BRDF = getSpecularBRDF(dir, normal, -ray.direction());
+        } else {
+          //BRDF = getModifiedPhongBRDF(dir, normal, -ray.direction());
+          BRDF = getDiffusiveBRDF();
+        }
         Vector light_normal;
-        light_source.normal(light_normal, context, Point(),
+        Point light_hitpos = shadowray.origin() +
+                             shadowray.direction() * shadowhit.minT();
+        light_source.normal(light_normal, context, light_hitpos,
                             shadowray, shadowhit);  // to-do: shadow ray hit point is fake now
         double geom = getGeometry(normal, light_ray, light_normal);
         ret = light_source.getColor();  // to-do: not support multiple lights
@@ -146,7 +156,13 @@ Color BasicMaterial::doIndirectIlluminate(const RenderContext& context,
     scene->getBackground()->getBackgroundColor(c, context, recursive_ray);
     ret = c;
   }
-  double BRDF = getModifiedPhongBRDF(dir, normal, -ray.direction());
+  double BRDF;
+  if (is_reflective) {
+    BRDF = getSpecularBRDF(dir, normal, -ray.direction());
+  } else {
+    //BRDF = getModifiedPhongBRDF(dir, normal, -ray.direction());
+    BRDF = getDiffusiveBRDF();
+  }
   ret *= BRDF;
 
   if (is_reflective) {
@@ -172,6 +188,17 @@ double BasicMaterial::getModifiedPhongBRDF(Vector in, Vector n, Vector out) cons
   double cos = Dot(out, s);
   cos = (cos > 1.0) ? 1.0 : cos;
   return Kd + Ks * pow(cos, p);
+}
+
+double BasicMaterial::getDiffusiveBRDF() const {
+  return Kd / M_PI;
+}
+
+double BasicMaterial::getSpecularBRDF(Vector in, Vector n, Vector out) const {
+  Vector s = getPerfectSpecularDirection(in, n);
+  double cos = Dot(out, s);
+  cos = (cos > 1.0) ? 1.0 : cos;
+  return Ks * (p + 2) * pow(cos, p) / (2.0 * M_PI);
 }
 
 double BasicMaterial::getGeometry(Vector ns, Vector sray, Vector nl) const {
@@ -263,9 +290,17 @@ Color BasicMaterial::doMultipleDirectIlluminate(const RenderContext& context,
         world->intersect(shadowhit, context, shadowray);
         assert(shadowhit.getPrimitive() != NULL);
         if (shadowhit.getPrimitive() == arealights[i]) {  // hit the light source, visibility part II
-          double BRDF = getModifiedPhongBRDF(dir, normal, -ray.direction());
+          double BRDF;
+          if (is_reflective) {
+            BRDF = getSpecularBRDF(dir, normal, -ray.direction());
+          } else {
+            //BRDF = getModifiedPhongBRDF(dir, normal, -ray.direction());
+            BRDF = getDiffusiveBRDF();
+          }
           Vector light_normal;
-          light_source.normal(light_normal, context, Point(),
+          Point light_hitpos = shadowray.origin() +
+                               shadowray.direction() * shadowhit.minT();
+          light_source.normal(light_normal, context, light_hitpos,
                               shadowray, shadowhit);  // to-do: shadow ray hit point is fake now
           double geom = getGeometry(normal, light_rays[j], light_normal);
           ratio += BRDF * geom;

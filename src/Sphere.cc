@@ -6,6 +6,8 @@
 #include "Ray.h"
 #include "Vector.h"
 #include <math.h>
+#include <cassert>
+#include <cstdio>
 
 Sphere::Sphere(Material* material, const Point& center, double radius)
   : Primitive(material), initial_center(center), center(center), radius(radius)
@@ -25,8 +27,25 @@ Sphere::Sphere(Material* material, const Point& center, double radius,
   inv_radius = 1./radius;
 }
 
+Sphere::Sphere(Material* material, bool is_luminous, int sf,
+               const Point& center, double radius,
+               Vector direction, double speed)
+    : Primitive(material, is_luminous, sf),
+      initial_center(center),
+      center(center),
+      radius(radius),
+      direction(direction),
+      speed(speed)
+{
+  inv_radius = 1./radius;
+}
+
 Sphere::~Sphere()
 {
+}
+
+void Sphere::preprocess() {
+  a = 4.0 * M_PI * radius * radius;
 }
 
 void Sphere::getBounds(BoundingBox& bbox) const
@@ -57,9 +76,40 @@ void Sphere::normal(Vector& normal, const RenderContext&, const Point& hitpos,
                     const Ray& ray, const HitRecord& hit) const
 {
   normal = (hitpos-center)*inv_radius;
+  double dist = normal.normalize();
+  //if (abs(dist - 0.0) > 1e-10)
+  //  printf("%.20f\n", dist);
+  //assert(abs(normal.normalize() - 0.0) < 1e-10);
 }
 
 void Sphere::move(double dt)
 {
   center = initial_center + direction * speed * dt;
+}
+
+void Sphere::getSamples(std::vector<Vector>& rays,
+                        const RenderContext& context,
+                        const Point& hitpos) const {
+  rays.clear();
+
+  for (int i = 0; i < sf * sf; ++i) {
+    double theta = M_PI * context.generateRandomNumber();
+    double phi = 2.0 * M_PI * context.generateRandomNumber();
+    Point sp(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
+    rays.push_back(sp - hitpos);
+  }
+}
+
+void Sphere::getSample(Vector& ray,
+                       const RenderContext& context,
+                       const Point& hitpos) const {
+  double theta = M_PI * context.generateRandomNumber();
+  double phi = 2.0 * M_PI * context.generateRandomNumber();
+  Point sp(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
+  ray = sp - hitpos;
+}
+
+double Sphere::getArea() const {
+  //printf("area=%lf\n", a);
+  return a;
 }

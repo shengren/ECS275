@@ -4,6 +4,9 @@
 
 #include "Primitive.h"
 #include "Point.h"
+#include "RenderContext.h"
+
+#include <vector>
 
 class Ray;
 
@@ -12,8 +15,12 @@ class Sphere : public Primitive {
   Sphere(Material* material, const Point& center, double radius);
   Sphere(Material* material, const Point& center, double radius,
          Vector direction, double speed);
+  Sphere(Material* material, bool is_luminous, int sf,
+         const Point& center, double radius,
+         Vector direction, double speed);
   virtual ~Sphere();
 
+  virtual void preprocess();
   virtual void getBounds(BoundingBox& bbox) const;
   virtual void intersect(HitRecord& hit, const RenderContext& context, const Ray& ray) const;
   virtual void normal(Vector& normal, const RenderContext& context,
@@ -21,10 +28,11 @@ class Sphere : public Primitive {
   virtual void move(double dt);
   virtual void getSamples(std::vector<Vector>& rays,
                           const RenderContext& context,
-                          const Point& hitpos) const {}
+                          const Point& hitpos) const;
   virtual void getSample(Vector& ray,
                          const RenderContext& context,
-                         const Point& hitpos) const {}
+                         const Point& hitpos) const;
+  virtual double getArea() const;
 
  protected:
   Point initial_center;
@@ -33,6 +41,7 @@ class Sphere : public Primitive {
   double inv_radius;
   Vector direction;
   double speed;
+  double a;
 
 };
 

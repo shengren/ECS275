@@ -659,6 +659,8 @@ Object *Parser::parsePlaneObject()
 Object *Parser::parseSphereObject()
 {
   Material *material = default_material;
+  bool is_luminous = false;
+  int sf = 1;
   Point center( 0.0, 0.0, 0.0 );
   double radius = 0.5;
   Vector direction( 0.0, 0.0, 0.0 );  // to-do: set default values in function signature
@@ -668,6 +670,10 @@ Object *Parser::parseSphereObject()
     {
       if ( peek( "material" ) )
         material = parseMaterial();
+      else if ( peek( "luminous" ) )
+        is_luminous = parseBoolean();
+      else if ( peek( "frequency" ) )
+        sf = parseInteger();
       else if ( peek( "center" ) )
         center = parsePoint();
       else if ( peek( "radius" ) )
@@ -680,9 +686,14 @@ Object *Parser::parseSphereObject()
         break;
       else
         throwParseException( "Expected `material', `center', `radius', "
+                             "luminous, frequency, "
                              "`direction', `speed' or }." );
     }
-  return new Sphere( material, center, radius, direction, speed );
+  Primitive* ret = new Sphere( material, is_luminous, sf,
+                               center, radius, direction, speed );
+  if (ret->isLuminous())
+    arealights.push_back(ret);
+  return ret;
 }
 
 Object *Parser::parseObject()

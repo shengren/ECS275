@@ -5,6 +5,15 @@ PROJECT( LiRender )
 # to scan for them and update the Makefile.  The generated Visual Studio
 # project should do this and update itself automatically -- click yes to
 # let it reload.
+
+# to-do: linux only
+FIND_PACKAGE( OpenMP )
+SET(CMAKE_CXX_FLAGS "${OpenMP_CXX_FLAGS}")
+IF ( OpenMP_CXX_FLAGS )
+  MESSAGE("---- Adding compiler parameter for OpenMP")
+  ADD_DEFINITIONS(-DOPENMP_ENABLE)
+ENDIF()
+
 FILE( GLOB SRC_FILES *.cc *.h )
 ADD_EXECUTABLE( lirender ${SRC_FILES} )
 
