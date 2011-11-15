@@ -90,11 +90,12 @@ void Sphere::getSamples(std::vector<Vector>& rays,
   rays.clear();
 
   for (int i = 0; i < sf * sf; ++i) {
-    double theta = M_PI * context.generateRandomNumber();
     double phi = 2.0 * M_PI * context.generateRandomNumber();
-    Vector sdir(sin(theta) * cos(phi),
-                sin(theta) * sin(phi),
-                cos(theta));
+    double cos_theta = 1.0 - 2.0 * context.generateRandomNumber();
+    double sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+    Vector sdir(sin_theta * cos(phi),
+        sin_theta * sin(phi),
+        cos_theta);
     Point sp = center + sdir * radius;
     if (Dot(hitpos - center, sp - center) < 0.0)
       sp = center + (-sdir) * radius;
@@ -105,11 +106,12 @@ void Sphere::getSamples(std::vector<Vector>& rays,
 void Sphere::getSample(Vector& ray,
                        const RenderContext& context,
                        const Point& hitpos) const {
-  double theta = M_PI * context.generateRandomNumber();
   double phi = 2.0 * M_PI * context.generateRandomNumber();
-  Vector sdir(sin(theta) * cos(phi),
-              sin(theta) * sin(phi),
-              cos(theta));
+  double cos_theta = 1.0 - 2.0 * context.generateRandomNumber();
+  double sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+  Vector sdir(sin_theta * cos(phi),
+              sin_theta * sin(phi),
+              cos_theta);
   Point sp = center + sdir * radius;
   if (Dot(hitpos - center, sp - center) < 0.0)
     sp = center + (-sdir) * radius;
