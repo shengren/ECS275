@@ -121,22 +121,26 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
 }
 
 void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
-  // to-do: only render one frame now
+  // to-do: this part enables progressive rendering
+  if (_camera_changed) {
+    _camera_changed = false;
+    frame_number = 0;
+  }
+
+  // to-do: for test only
+  // render only one frame, but, actually, 'trace' is called twice.
+  // on Mac, can't see output if called 'trace' only once.
+  // guess, it is related to camera information updates.
   if (frame_number > 0)
     return;
+
+  context["frame_number"]->setUint(frame_number++);
 
   // set the current camera parameters
   context["camera_position"]->setFloat(camera_data.eye);
   context["camera_u"]->setFloat(camera_data.U);
   context["camera_v"]->setFloat(camera_data.V);
   context["camera_w"]->setFloat(camera_data.W);
-
-  // to-do: this part enables progressive rendering
-  if (_camera_changed) {
-    _camera_changed = false;
-    frame_number = 0;
-  }
-  context["frame_number"]->setUint(frame_number++);
 
   // window size may be changed
   Buffer buffer = getOutputBuffer();
@@ -419,9 +423,10 @@ void PhotonMappingScene::createPhotonMap()
       temp_photons[valid_photons++] = &photons_data[i];
     }
   }
-  std::cerr << " ** valid_photon/NUM_PHOTONS =  " 
-            << valid_photons<<"/"<<NUM_PHOTONS
-            <<" ("<<valid_photons/static_cast<float>(NUM_PHOTONS)<<")\n";
+
+  //std::cerr << " ** valid_photon/NUM_PHOTONS =  " 
+  //          << valid_photons<<"/"<<NUM_PHOTONS
+  //          <<" ("<<valid_photons/static_cast<float>(NUM_PHOTONS)<<")\n";
 
   // Make sure we arent at most 1 less than power of 2
   valid_photons = valid_photons >= _photon_map_size ? _photon_map_size : valid_photons;
