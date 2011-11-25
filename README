@@ -1,2 +1,6 @@
 'reference'('src' now) was downloaded by
 svn checkout --username anonymous https://gforge.sci.utah.edu/svn/cs6620
+
+'FinalProject' contains NVIDIA-OptiX-SDK-2.1.1-linux64 without examples.
+The photon mapping code is located at 'FinalProject/src/PhotonMapping'.
+
