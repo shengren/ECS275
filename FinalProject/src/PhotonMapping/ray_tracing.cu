@@ -47,7 +47,7 @@ rtDeclareVariable(float3, bad_color, , );  // green
 RT_PROGRAM void rt_exception() {
   HitRecord& hr = hit_record_buffer[launch_index];
   hr.flags = EXCEPTION;
-  hr.attenuated_Kd = bad_color;
+  hr.attenuation = bad_color;
   hr.position = hr.normal = hr.outgoing = hr.Rho_d = make_float3(0.0f);
 
   rtPrintExceptionDetails();  // to-do: for debugging
@@ -67,7 +67,7 @@ RT_PROGRAM void rt_viewing_ray_closest_hit() {
   if (fmaxf(Le) > 0.0f) {  // light source?
     HitRecord& hr = hit_record_buffer[launch_index];
     hr.flags = HIT_LIGHT;
-    hr.attenuated_Kd = rt_viewing_ray_payload.attenuation * Le;
+    hr.attenuation = rt_viewing_ray_payload.attenuation * Le;
     hr.position = hr.normal = hr.outgoing = hr.Rho_d = make_float3(0.0f);
     return;
   }
@@ -82,9 +82,9 @@ RT_PROGRAM void rt_viewing_ray_closest_hit() {
     hr.flags = HIT;
     // since we don't know the incoming directions, here we don't apply the
     // BRDF and cosine term. They should be computed in the gathering pass.
-    // i.e. attenuated_Kd only includes all previous hits' computations on
+    // i.e. attenuation only includes all previous hits' computations on
     // specular surfaces.
-    hr.attenuated_Kd = rt_viewing_ray_payload.attenuation;
+    hr.attenuation = rt_viewing_ray_payload.attenuation;
     hr.position = hit_point;
     hr.normal = ffnormal;
     hr.outgoing = -rt_viewing_ray.direction;
@@ -114,6 +114,6 @@ rtDeclareVariable(float3, bg_color, , );  // black
 RT_PROGRAM void rt_viewing_ray_miss() {
   HitRecord& hr = hit_record_buffer[launch_index];
   hr.flags = HIT_BACKGROUND;
-  hr.attenuated_Kd = rt_viewing_ray_payload.attenuation * bg_color;
+  hr.attenuation = rt_viewing_ray_payload.attenuation * bg_color;
   hr.position = hr.normal = hr.outgoing = hr.Rho_d = make_float3(0.0f);
 }

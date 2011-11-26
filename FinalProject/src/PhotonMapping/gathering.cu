@@ -27,7 +27,7 @@ RT_PROGRAM void gt_ray_generation() {
   HitRecord hr = hit_record_buffer[launch_index];
 
   if ((hr.flags & EXCEPTION) || !(hr.flags & HIT)) {
-    output_buffer[launch_index] = make_float4(hr.attenuated_Kd);
+    output_buffer[launch_index] = make_float4(hr.attenuation);
     return;
   }
 
@@ -70,7 +70,7 @@ RT_PROGRAM void gt_ray_generation() {
       if (distance2 <= radius2) {
         /*
         if (dot(pr.normal, hr.normal) > 1e-5) {
-          //total_flux += pr.power * hr.attenuated_Kd;
+          //total_flux += pr.power * hr.attenuation;
           total_flux += pr.power;
           num_photons++;
         }
@@ -174,9 +174,9 @@ RT_PROGRAM void gt_ray_generation() {
   */
 
   // output
-  //output_buffer[launch_index] = make_float4((indirect + direct) * hr.attenuated_Kd,
+  //output_buffer[launch_index] = make_float4((indirect + direct) * hr.attenuation,
   //                                          0.0f);
-  output_buffer[launch_index] = make_float4((indirect + direct) * hr.Rho_d * hr.attenuated_Kd,
+  output_buffer[launch_index] = make_float4((indirect + direct) * hr.Rho_d * hr.attenuation,
                                             0.0f);
 }
 

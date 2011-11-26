@@ -11,7 +11,7 @@
 
 struct HitRecord {
   optix::uint flags;
-  optix::float3 attenuated_Kd;
+  optix::float3 attenuation;
   optix::float3 position;
   optix::float3 normal;
   optix::float3 outgoing;
