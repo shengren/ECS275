@@ -116,7 +116,8 @@ RT_PROGRAM void pt_photon_ray_closest_hit() {
                                                    Rho_s,
                                                    shininess);
   }
-  pt_photon_ray_payload.power *= dot(-pt_photon_ray.direction, ffnormal);  // cosine term
+  // to-do: confirm that there is no cosine term during photon transport
+  //pt_photon_ray_payload.power *= dot(-pt_photon_ray.direction, ffnormal);  // cosine term
   pt_photon_ray_payload.depth++;
 
   Ray ray(hit_point,
