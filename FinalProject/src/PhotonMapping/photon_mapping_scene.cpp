@@ -21,8 +21,8 @@ PhotonMappingScene::PhotonMappingScene()
       width(1024),
       height(1024),
       frame_number(0),
-      pt_width(1000),
-      pt_height(1000),
+      pt_width(100),
+      pt_height(100),
       max_num_deposits(3),
       min_depth(1),  // start recording from 2 bounces is the regular case, 1 is for test
       max_depth(5)

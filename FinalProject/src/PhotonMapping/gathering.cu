@@ -116,7 +116,12 @@ RT_PROGRAM void gt_ray_generation() {
 
   // indirect
   // to-do:
-  float3 indirect = total_flux / (M_PI * radius2) / total_emitted;
+  //float3 indirect = total_flux / (M_PI * radius2) / total_emitted;
+  float3 indirect;
+  if (num_photons > 0)
+    indirect = make_float3(1.0f);
+  else
+    indirect = make_float3(0.0f);
 
   // direct
   float3 direct = make_float3(0.0f);
@@ -169,7 +174,9 @@ RT_PROGRAM void gt_ray_generation() {
   */
 
   // output
-  output_buffer[launch_index] = make_float4((indirect + direct) * hr.attenuated_Kd,
+  //output_buffer[launch_index] = make_float4((indirect + direct) * hr.attenuated_Kd,
+  //                                          0.0f);
+  output_buffer[launch_index] = make_float4((indirect + direct) * hr.Rho_d * hr.attenuated_Kd,
                                             0.0f);
 }
 

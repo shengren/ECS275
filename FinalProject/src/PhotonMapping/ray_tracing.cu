@@ -48,7 +48,7 @@ RT_PROGRAM void rt_exception() {
   HitRecord& hr = hit_record_buffer[launch_index];
   hr.flags = EXCEPTION;
   hr.attenuated_Kd = bad_color;
-  hr.position = hr.normal = hr.outgoing = make_float3(0.0f);
+  hr.position = hr.normal = hr.outgoing = hr.Rho_d = make_float3(0.0f);
 
   rtPrintExceptionDetails();  // to-do: for debugging
 }
@@ -68,7 +68,7 @@ RT_PROGRAM void rt_viewing_ray_closest_hit() {
     HitRecord& hr = hit_record_buffer[launch_index];
     hr.flags = HIT_LIGHT;
     hr.attenuated_Kd = rt_viewing_ray_payload.attenuation * Le;
-    hr.position = hr.normal = hr.outgoing = make_float3(0.0f);
+    hr.position = hr.normal = hr.outgoing = hr.Rho_d = make_float3(0.0f);
     return;
   }
 
@@ -88,6 +88,7 @@ RT_PROGRAM void rt_viewing_ray_closest_hit() {
     hr.position = hit_point;
     hr.normal = ffnormal;
     hr.outgoing = -rt_viewing_ray.direction;
+    hr.Rho_d = Rho_d;
     return;
   }
 
@@ -114,5 +115,5 @@ RT_PROGRAM void rt_viewing_ray_miss() {
   HitRecord& hr = hit_record_buffer[launch_index];
   hr.flags = HIT_BACKGROUND;
   hr.attenuated_Kd = rt_viewing_ray_payload.attenuation * bg_color;
-  hr.position = hr.normal = hr.outgoing = make_float3(0.0f);
+  hr.position = hr.normal = hr.outgoing = hr.Rho_d = make_float3(0.0f);
 }
