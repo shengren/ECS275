@@ -87,7 +87,7 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
       context->createProgramFromPTXFile(getPTXPath("photon_tracing.cu"),
                                         "pt_exception"));
 
-  // knn
+  // knn search
 
   photon_map_size = pow2roundup(pt_width * pt_height * max_num_deposits) - 1;  // to-do: should be a parameter!!!
   photon_map = context->createBuffer(RT_BUFFER_INPUT);
@@ -96,7 +96,7 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   photon_map->setSize(photon_map_size);
   context["photon_map"]->set(photon_map);
 
-  // gather
+  // gathering
   
   context["total_emitted"]->setFloat(pt_width * pt_height);
 
@@ -105,11 +105,11 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
 
   context->setRayGenerationProgram(
       gt,
-      context->createProgramFromPTXFile(getPTXPath("gather.cu"),
+      context->createProgramFromPTXFile(getPTXPath("gathering.cu"),
                                         "gt_ray_generation"));
   context->setExceptionProgram(
       gt,
-      context->createProgramFromPTXFile(getPTXPath("gather.cu"),
+      context->createProgramFromPTXFile(getPTXPath("gathering.cu"),
                                         "gt_exception"));
 
   // scene
@@ -169,12 +169,12 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
 
   cout << "create photon map" << endl;
 
-  // gather
+  // gathering
   context->launch(gt,
                   buffer_width,
                   buffer_height);
 
-  cout << "gather" << endl;
+  cout << "gathering" << endl;
 }
 
 Buffer PhotonMappingScene::getOutputBuffer() {
@@ -264,7 +264,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                                                    "pt_photon_ray_closest_hit"));
   material->setAnyHitProgram(
       gt_shadow_ray_type,
-      context->createProgramFromPTXFile(getPTXPath("gather.cu"),
+      context->createProgramFromPTXFile(getPTXPath("gathering.cu"),
                                         "gt_shadow_ray_any_hit"));
 
   const float3 white = make_float3(0.8f, 0.8f, 0.8f);

@@ -2,12 +2,13 @@
 #include <optixu/optixu_math_namespace.h>
 
 #include "random.h"
+#include "kdtree.h"
 #include "structs.h"
 #include "inlines.h"
 
 using namespace optix;
 
-// gather, ray generation
+// gathering, ray generation
 rtBuffer<HitRecord, 2> hit_record_buffer;
 rtBuffer<float4, 2> output_buffer;
 rtBuffer<PhotonRecord, 1> photon_map;  // 1D
@@ -172,14 +173,14 @@ RT_PROGRAM void gt_ray_generation() {
                                             0.0f);
 }
 
-// gather, exception
+// gathering, exception
 rtDeclareVariable(float3, bad_color, , );
 
 RT_PROGRAM void gt_exception() {
   output_buffer[launch_index] = make_float4(bad_color);
 }
 
-// gather, direct illumination, shadow ray, any hit
+// gathering, direct illumination, shadow ray, any hit
 rtDeclareVariable(GTShadowRayPayload, gt_shadow_ray_payload, rtPayload, );
 
 RT_PROGRAM void gt_shadow_ray_any_hit() {
