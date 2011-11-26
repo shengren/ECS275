@@ -7,59 +7,37 @@
 
 using namespace optix;
 
-// modified from progressivePhotonMap/path_tracer.h
-__device__ __inline__ optix::float3 sampleUnitHemisphereCosine(
-    optix::uint& seed,
-    const optix::float3& normal) {
-  optix::float3 U, V, W;
-  createONB(normal, U, V, W);
-
-  float phi = 2.0f * M_PIf * rnd(seed);
-  float r = sqrt(rnd(seed));
-  float x = r * cos(phi);
-  float y = r * sin(phi);
-  float z = 1.0f - x * x - y * y;
-  z = z > 0.0f ? sqrt(z) : 0.0f;
-
-  return x * U + y * V + z * W;
-}
-
-__device__ __inline__ void generatePhoton(const ParallelogramLight& light,
-                                          uint& seed,
-                                          float3& sample_position,
-                                          float3& sample_direction,
-                                          float3& sample_power) {
-  sample_position = light.corner + light.v1 * rnd(seed) + light.v2 * rnd(seed);
-
-  sample_direction = sampleUnitHemisphereCosine(seed, light.normal);
-
-  sample_power = light.power;
-}
-
 // variables used in multiple programs
+rtBuffer<PhotonRecord, 1> photon_record_buffer;
 rtDeclareVariable(rtObject, top_object, , );
 rtDeclareVariable(uint, pt_photon_ray_type, , );
 rtDeclareVariable(uint, max_num_deposits, , );
-rtBuffer<PhotonRecord> photon_record_buffer;  // 1D by default
 
 // photon tracing, ray generation
+rtBuffer<ParallelogramLight> lights;  // to-do: only have parallelogram lights
 rtDeclareVariable(uint2, launch_index, rtLaunchIndex, );
 rtDeclareVariable(uint2, launch_dim, rtLaunchDim, );
 rtDeclareVariable(uint, frame_number, , );
-rtBuffer<ParallelogramLight> lights;  // to-do: only have parallelogram lights
 
 RT_PROGRAM void pt_ray_generation() {
-  uint index = launch_index.y * launch_dim.x + launch_index.x;  // to-do: Will 1D launch be enough?
+  uint index = launch_index.y * launch_dim.x + launch_index.x;  // to-do: is 1D launch enough?
   uint seed = tea<16>(index, frame_number);
   float3 sample_position;
   float3 sample_direction;
   float3 sample_power;
 
   // to-do: better way?
-  for (int i = 0; i < max_num_deposits; ++i)
-    photon_record_buffer[index + i].power = make_float3(0.0f);
+  // initialize photon records assigned to this photon
+  for (int i = 0; i < max_num_deposits; ++i) {
+    photon_record_buffer[index + i].power = 
+    photon_record_buffer[index + i].position = 
+    photon_record_buffer[index + i].normal = 
+    photon_record_buffer[index + i].incoming = 
+    make_float3(0.0f);
+    photon_record_buffer[index + i].axis = 0;
+  }
 
-  // to-do: one parallelogram light only
+  // to-do: only one parallelogram light now
   generatePhoton(lights[0], seed, sample_position, sample_direction, sample_power);
 
   Ray ray(sample_position,
@@ -70,28 +48,30 @@ RT_PROGRAM void pt_ray_generation() {
   PTPhotonRayPayload payload;
   payload.power = sample_power;
   payload.index = index;
-  payload.seed = seed;
   payload.num_deposits = 0;
-  payload.depth = 0;
+  payload.depth = 1;
+  payload.seed = seed;
 
   rtTrace(top_object, ray, payload);
 }
 
 // photon tracing, exception
 RT_PROGRAM void pt_exception() {
-  rtPrintExceptionDetails();  // to-do:
+  rtPrintExceptionDetails();  // to-do: for debugging
 }
 
 // photon tracing, photon ray, closest hit, default material
 rtDeclareVariable(Ray, pt_photon_ray, rtCurrentRay, );
 rtDeclareVariable(float, hit_t, rtIntersectionDistance, );
+rtDeclareVariable(PTPhotonRayPayload, pt_photon_ray_payload, rtPayload, );
+rtDeclareVariable(uint, min_depth, , );  // started from 1, record bounces in [min_depth, max_depth]
+rtDeclareVariable(uint, max_depth, , );
 rtDeclareVariable(float3, shading_normal, attribute shading_normal, );
 rtDeclareVariable(float3, geometric_normal, attribute geometric_normal, );
 rtDeclareVariable(float3, Le, , );
-rtDeclareVariable(float3, Kd, , );
-rtDeclareVariable(float3, Ks, , );
-rtDeclareVariable(PTPhotonRayPayload, pt_photon_ray_payload, rtPayload, );
-rtDeclareVariable(uint, max_depth, , );
+rtDeclareVariable(float3, Rho_d, , );
+rtDeclareVariable(float3, Rho_s, , );
+rtDeclareVariable(float, shininess, , );
 
 RT_PROGRAM void pt_photon_ray_closest_hit() {
   if (fmaxf(Le) > 0.0f) {  // light source
@@ -104,15 +84,15 @@ RT_PROGRAM void pt_photon_ray_closest_hit() {
   float3 ffnormal = faceforward(world_shading_normal, -pt_photon_ray.direction, world_geometric_normal);
 
   // record when hit diffuse surfaces and bounced at least once (avoid doubling direct illumination)
-  // to-do: test-only
-  //if (fmaxf(Kd) > 0.0f && pt_photon_ray_payload.depth > 0) {
-  if (fmaxf(Kd) > 0.0f) {
+  // min_depth = 1, record from the first bounce for test, = 2, regular case
+  if (fmaxf(Rho_d) > 0.0f && pt_photon_ray_payload.depth >= min_depth) {
     PhotonRecord& pr = photon_record_buffer[pt_photon_ray_payload.index +
                                             pt_photon_ray_payload.num_deposits];
+    pr.power = pt_photon_ray_payload.power;
     pr.position = hit_point;
     pr.normal = ffnormal;
     pr.incoming = -pt_photon_ray.direction;  // hit_point is the origin
-    pr.power = pt_photon_ray_payload.power;
+    // pr.axis is used in kdtree
 
     pt_photon_ray_payload.num_deposits++;
   }
@@ -122,21 +102,28 @@ RT_PROGRAM void pt_photon_ray_closest_hit() {
     return;
   }
 
-  pt_photon_ray_payload.depth++;
   float3 next_direction;
-  if (fmaxf(Kd) > 0.0f) {  // diffuse
-    pt_photon_ray_payload.power *= Kd;  // to-do: BRDF shouldn't be a constant
+  // to-do: the material is either pure diffuse or pure specular, no third option now
+  if (fmaxf(Rho_d) > 0.0f) {  // diffuse
     next_direction = sampleUnitHemisphereCosine(pt_photon_ray_payload.seed,
                                                 ffnormal);
+    pt_photon_ray_payload.power *= getDiffuseBRDF(Rho_d);
   } else {  // specular
-    pt_photon_ray_payload.power *= Ks;  // to-do: BRDF shouldn't be a constant
     next_direction = reflect(pt_photon_ray.direction, ffnormal);  // inversed incoming
+    pt_photon_ray_payload.power *= getSpecularBRDF(-pt_photon_ray.direction,  // incoming
+                                                   ffnormal,
+                                                   next_direction,  // outgoing
+                                                   Rho_s,
+                                                   shininess);
   }
+  pt_photon_ray_payload.power *= dot(-pt_photon_ray.direction, ffnormal);  // cosine term
+  pt_photon_ray_payload.depth++;
 
   Ray ray(hit_point,
           next_direction,
           pt_photon_ray_type,
           1e-10f);
+
   rtTrace(top_object, ray, pt_photon_ray_payload);
 }
 

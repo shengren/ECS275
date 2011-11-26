@@ -18,22 +18,19 @@ using namespace optix;
 
 PhotonMappingScene::PhotonMappingScene()
     : context(_context),
-      width(512),
-      height(512),
+      width(1024),
+      height(1024),
       frame_number(0),
-      pt_width(100),
-      pt_height(100),
-      max_num_deposits(2)
+      pt_width(1000),
+      pt_height(1000),
+      max_num_deposits(3),
+      min_depth(1),  // start recording from 2 bounces is the regular case, 1 is for test
+      max_depth(5)
 {}
 
 void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   context->setEntryPointCount(num_programs);  // rt, pt, gt = 3
   context->setStackSize(2000);  // to-do: tuning
-
-  context["bad_color"]->setFloat(make_float3(0.0f, 1.0f, 0.0f));  // green
-  context["bg_color"]->setFloat(make_float3(0.0f));  // black
-  context["max_depth"]->setUint(3);  // to-do: input parameters?
-  context["max_num_deposits"]->setUint(max_num_deposits);
 
   context->setRayTypeCount(num_ray_types);
   context["rt_viewing_ray_type"]->setUint(rt_viewing_ray_type);
@@ -41,6 +38,9 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   context["gt_shadow_ray_type"]->setUint(gt_shadow_ray_type);
 
   // ray tracing
+
+  context["bad_color"]->setFloat(make_float3(0.0f, 1.0f, 0.0f));  // green
+  context["bg_color"]->setFloat(make_float3(0.0f));  // black
 
   // camera ray generation parameters
   // camera_data is handled by GLUT for updating camera parameters.
@@ -71,6 +71,10 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
                                                    "rt_viewing_ray_miss"));
 
   // photon tracing
+
+  context["max_num_deposits"]->setUint(max_num_deposits);
+  context["min_depth"]->setUint(min_depth);
+  context["max_depth"]->setUint(max_depth);
 
   photon_record_buffer = context->createBuffer(RT_BUFFER_OUTPUT);
   photon_record_buffer->setFormat(RT_FORMAT_USER);
@@ -206,9 +210,10 @@ GeometryInstance PhotonMappingScene::createParallelogram(const float3& anchor,
   GeometryInstance gi = context->createGeometryInstance();
   gi->setGeometry(g);
   gi->addMaterial(material);
-  gi["Kd"]->setFloat(0.0f, 0.0f, 0.0f);
-  gi["Ks"]->setFloat(0.0f, 0.0f, 0.0f);
   gi["Le"]->setFloat(0.0f, 0.0f, 0.0f);
+  gi["Rho_d"]->setFloat(0.0f, 0.0f, 0.0f);
+  gi["Rho_s"]->setFloat(0.0f, 0.0f, 0.0f);
+  gi["shininess"]->setFloat(0.0f);
 
   return gi;
 }
@@ -281,7 +286,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Kd"]->setFloat(white);  // to-do: find a better way to do this
+  gis.back()["Rho_d"]->setFloat(white);  // to-do: find a better way to do this
   // Ceiling
   gis.push_back(createParallelogram(make_float3(0.0f, 548.8f, 0.0f),
                                     make_float3(556.0f, 0.0f, 0.0f),
@@ -289,7 +294,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Kd"]->setFloat(white);
+  gis.back()["Rho_d"]->setFloat(white);
   // Back wall
   gis.push_back(createParallelogram(make_float3(0.0f, 0.0f, 559.2f),
                                     make_float3(0.0f, 548.8f, 0.0f),
@@ -297,7 +302,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Kd"]->setFloat(white);
+  gis.back()["Rho_d"]->setFloat(white);
   // Right wall
   gis.push_back(createParallelogram(make_float3(0.0f, 0.0f, 0.0f),
                                     make_float3(0.0f, 548.8f, 0.0f),
@@ -305,7 +310,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Kd"]->setFloat(green);
+  gis.back()["Rho_d"]->setFloat(green);
   // Left wall
   gis.push_back(createParallelogram(make_float3(556.0f, 0.0f, 0.0f),
                                     make_float3(0.0f, 0.0f, 559.2f),
@@ -313,7 +318,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Kd"]->setFloat(red);
+  gis.back()["Rho_d"]->setFloat(red);
   // Short block
   gis.push_back(createParallelogram(make_float3(130.0f, 165.0f, 65.0f),
                                     make_float3(-48.0f, 0.0f, 160.0f),
@@ -321,35 +326,35 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Kd"]->setFloat(white);
+  gis.back()["Rho_d"]->setFloat(white);
   gis.push_back(createParallelogram(make_float3(290.0f, 0.0f, 114.0f),
                                     make_float3(0.0f, 165.0f, 0.0f),
                                     make_float3(-50.0f, 0.0f, 158.0f),
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Kd"]->setFloat(white);
+  gis.back()["Rho_d"]->setFloat(white);
   gis.push_back(createParallelogram(make_float3(130.0f, 0.0f, 65.0f),
                                     make_float3(0.0f, 165.0f, 0.0f),
                                     make_float3(160.0f, 0.0f, 49.0f),
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Kd"]->setFloat(white);
+  gis.back()["Rho_d"]->setFloat(white);
   gis.push_back(createParallelogram(make_float3(82.0f, 0.0f, 225.0f),
                                     make_float3(0.0f, 165.0f, 0.0f),
                                     make_float3(48.0f, 0.0f, -160.0f),
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Kd"]->setFloat(white);
+  gis.back()["Rho_d"]->setFloat(white);
   gis.push_back(createParallelogram(make_float3(240.0f, 0.0f, 272.0f),
                                     make_float3(0.0f, 165.0f, 0.0f),
                                     make_float3(-158.0f, 0.0f, -47.0f),
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Kd"]->setFloat(white);
+  gis.back()["Rho_d"]->setFloat(white);
   // Tall block
   gis.push_back(createParallelogram(make_float3(423.0f, 330.0f, 247.0f),
                                     make_float3(-158.0f, 0.0f, 49.0f),
@@ -357,35 +362,35 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Kd"]->setFloat(white);
+  gis.back()["Rho_d"]->setFloat(white);
   gis.push_back(createParallelogram(make_float3(423.0f, 0.0f, 247.0f),
                                     make_float3(0.0f, 330.0f, 0.0f),
                                     make_float3(49.0f, 0.0f, 159.0f),
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Kd"]->setFloat(white);
+  gis.back()["Rho_d"]->setFloat(white);
   gis.push_back(createParallelogram(make_float3(472.0f, 0.0f, 406.0f),
                                     make_float3(0.0f, 330.0f, 0.0f),
                                     make_float3(-158.0f, 0.0f, 50.0f),
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Kd"]->setFloat(white);
+  gis.back()["Rho_d"]->setFloat(white);
   gis.push_back(createParallelogram(make_float3(314.0f, 0.0f, 456.0f),
                                     make_float3(0.0f, 330.0f, 0.0f),
                                     make_float3(-49.0f, 0.0f, -160.0f),
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Kd"]->setFloat(white);
+  gis.back()["Rho_d"]->setFloat(white);
   gis.push_back(createParallelogram(make_float3(265.0f, 0.0f, 296.0f),
                                     make_float3(0.0f, 330.0f, 0.0f),
                                     make_float3(158.0f, 0.0f, -49.0f),
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Kd"]->setFloat(white);
+  gis.back()["Rho_d"]->setFloat(white);
 
   // Parallelogram light, appearing in both the light buffer and geometry objects
   // make sure these two are identical in geometry, e.g. having the same normal vector

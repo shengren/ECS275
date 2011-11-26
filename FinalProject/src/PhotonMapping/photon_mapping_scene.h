@@ -61,6 +61,8 @@ class PhotonMappingScene : public SampleScene {
   unsigned int pt_width;
   unsigned int pt_height;
   unsigned int max_num_deposits;
+  unsigned int min_depth;
+  unsigned int max_depth;
   unsigned int photon_map_size;
   optix::Buffer hit_record_buffer;
   optix::Buffer photon_record_buffer;

@@ -3,6 +3,7 @@
 
 #include "random.h"  // tea<>, rnd()
 #include "structs.h"
+#include "inlines.h"
 
 using namespace optix;
 
@@ -35,7 +36,7 @@ RT_PROGRAM void rt_ray_generation() {
 
   RTViewingRayPayload payload;
   payload.attenuation = make_float3(1.0f);
-  payload.depth = 0;
+  payload.depth = 1;  // to-do: unused now
 
   rtTrace(top_object, ray, payload);
 }
@@ -58,8 +59,9 @@ rtDeclareVariable(float, hit_t, rtIntersectionDistance, );
 rtDeclareVariable(float3, shading_normal, attribute shading_normal, );
 rtDeclareVariable(float3, geometric_normal, attribute geometric_normal, );
 rtDeclareVariable(float3, Le, , );
-rtDeclareVariable(float3, Kd, , );
-rtDeclareVariable(float3, Ks, , );
+rtDeclareVariable(float3, Rho_d, , );
+rtDeclareVariable(float3, Rho_s, , );
+rtDeclareVariable(float, shininess, , );
 
 RT_PROGRAM void rt_viewing_ray_closest_hit() {
   if (fmaxf(Le) > 0.0f) {  // light source?
@@ -75,7 +77,7 @@ RT_PROGRAM void rt_viewing_ray_closest_hit() {
   float3 world_geometric_normal = normalize(rtTransformNormal(RT_OBJECT_TO_WORLD, geometric_normal));
   float3 ffnormal = faceforward(world_shading_normal, -rt_viewing_ray.direction, world_geometric_normal);
 
-  if (fmaxf(Kd) > 0.0f) {  // diffuse surface?
+  if (fmaxf(Rho_d) > 0.0f) {  // diffuse surface?
     HitRecord& hr = hit_record_buffer[launch_index];
     hr.flags = HIT;
     // since we don't know the incoming directions, here we don't apply the
@@ -90,9 +92,14 @@ RT_PROGRAM void rt_viewing_ray_closest_hit() {
   }
 
   // specular surface, recursion
-  rt_viewing_ray_payload.attenuation *= Ks;  // to-do: BRDF shouldn't be a constant
   rt_viewing_ray_payload.depth++;  // to-do: unused now
   float3 reflection_direction = reflect(rt_viewing_ray.direction, ffnormal);  // inversed incoming
+  rt_viewing_ray_payload.attenuation *= getSpecularBRDF(reflection_direction,  // incoming
+                                                        ffnormal,  // normal
+                                                        -rt_viewing_ray.direction,  // outgoing
+                                                        Rho_s,  // not Ks but for computing Ks
+                                                        shininess);  // the power factor
+  rt_viewing_ray_payload.attenuation *= dot(reflection_direction, ffnormal);  // cosine term
   Ray ray(hit_point,
           reflection_direction,
           rt_viewing_ray_type,

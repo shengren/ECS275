@@ -1,3 +1,5 @@
+#ifndef SELECT_H_
+#define SELECT_H_
 
 /*
  * Copyright (c) 2008 - 2009 NVIDIA Corporation.  All rights reserved.
@@ -217,3 +219,5 @@ end procedure
       left = pivotNewIndex+1;
   }
 }
+
+#endif  // SELECT_H_

@@ -1,3 +1,5 @@
+#ifndef RANDOM_H_
+#define RANDOM_H_
 
 /*
  * Copyright (c) 2008 - 2009 NVIDIA Corporation.  All rights reserved.
@@ -112,3 +114,5 @@ __host__ __device__ __inline__ unsigned int rot_seed( unsigned int seed, unsigne
 {
     return seed ^ frame;
 }
+
+#endif  // RANDOM_H_
