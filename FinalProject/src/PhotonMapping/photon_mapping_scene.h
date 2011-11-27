@@ -47,6 +47,7 @@ class PhotonMappingScene : public SampleScene {
     rt,
     pt,
     gt,
+    ot,
     num_programs
   };
 
@@ -60,6 +61,7 @@ class PhotonMappingScene : public SampleScene {
   optix::Context& context;  // refer to _context from SampleScene
   optix::uint width;
   optix::uint height;
+  optix::uint sqrt_num_subpixels;
   optix::uint frame_number;  // to-do: enable progressive rendering
   optix::uint pt_width;
   optix::uint pt_height;
@@ -71,6 +73,7 @@ class PhotonMappingScene : public SampleScene {
   optix::Buffer hit_record_buffer;
   optix::Buffer photon_record_buffer;
   optix::Buffer photon_map;
+  optix::Buffer subpixel_accumulator;
 };
 
 #endif  // PHOTON_MAPPING_SCENE_H_

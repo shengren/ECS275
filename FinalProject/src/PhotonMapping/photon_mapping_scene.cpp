@@ -18,12 +18,13 @@ using namespace optix;
 
 PhotonMappingScene::PhotonMappingScene()
     : context(_context),
-      width(512),
-      height(512),
+      width(768),
+      height(768),
+      sqrt_num_subpixels(2),
       frame_number(0),
       pt_width(1000),
       pt_height(1000),
-      max_num_deposits(5),
+      max_num_deposits(3),
       min_depth(2),  // start recording from 2 bounces is the regular case, 1 is for test
       max_depth(5),
       radius2(400.0f)
@@ -55,7 +56,8 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   hit_record_buffer = context->createBuffer(RT_BUFFER_OUTPUT);
   hit_record_buffer->setFormat(RT_FORMAT_USER);
   hit_record_buffer->setElementSize(sizeof(HitRecord));
-  hit_record_buffer->setSize(width, height);
+  hit_record_buffer->setSize(width * sqrt_num_subpixels,
+                             height * sqrt_num_subpixels);
   context["hit_record_buffer"]->set(hit_record_buffer);
 
   context->setRayGenerationProgram(
@@ -106,8 +108,11 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   // gathering
 
   context["radius2"]->setFloat(radius2);
-  context["output_buffer"]->set(
-      createOutputBuffer(RT_FORMAT_FLOAT4, width, height));  // to-do: why FLOAT4?
+  subpixel_accumulator = context->createBuffer(RT_BUFFER_OUTPUT,
+                                               RT_FORMAT_FLOAT3,
+                                               width * sqrt_num_subpixels,
+                                               height * sqrt_num_subpixels);
+  context["subpixel_accumulator"]->set(subpixel_accumulator);
 
   context->setRayGenerationProgram(
       gt,
@@ -117,6 +122,17 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
       gt,
       context->createProgramFromPTXFile(getPTXPath("gathering.cu"),
                                         "gt_exception"));
+
+  // output
+
+  context->setRayGenerationProgram(
+      ot,
+      context->createProgramFromPTXFile(getPTXPath("output.cu"),
+                                        "ot_ray_generation"));
+
+  context["sqrt_num_subpixels"]->setUint(sqrt_num_subpixels);
+  context["output_buffer"]->set(
+      createOutputBuffer(RT_FORMAT_FLOAT4, width, height));  // to-do: why FLOAT4?
 
   // scene
 
@@ -154,8 +170,8 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
 
   // ray tracing
   context->launch(rt,
-                  buffer_width,
-                  buffer_height);
+                  width * sqrt_num_subpixels,//buffer_width,
+                  height * sqrt_num_subpixels);//buffer_height);
 
   // photon_tracing
   context->launch(pt,
@@ -167,8 +183,13 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
 
   // gathering
   context->launch(gt,
-                  buffer_width,
-                  buffer_height);
+                  width * sqrt_num_subpixels,//buffer_width,
+                  height * sqrt_num_subpixels);//buffer_height);
+
+  // output
+  context->launch(ot,
+                  width,
+                  height);
 }
 
 Buffer PhotonMappingScene::getOutputBuffer() {
@@ -227,7 +248,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
   light.v2 = make_float3(-130.0f, 0.0, 0.0f);
   light.normal = normalize(cross(light.v1, light.v2));
   light.area = length(cross(light.v1, light.v2));
-  light.power = make_float3(5e7f);
+  light.power = make_float3(3e7f);
   light.sqrt_num_samples = 2;
   light.emitted = make_float3(50.0f);
   // add this light to the engine

@@ -31,6 +31,7 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     ray_tracing.cu
     photon_tracing.cu
     gathering.cu
+    output.cu
     parallelogram.cu
     inlines.h
     structs.h
