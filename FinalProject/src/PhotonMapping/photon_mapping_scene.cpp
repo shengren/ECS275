@@ -23,9 +23,10 @@ PhotonMappingScene::PhotonMappingScene()
       frame_number(0),
       pt_width(1000),
       pt_height(1000),
-      max_num_deposits(3),
+      max_num_deposits(5),
       min_depth(2),  // start recording from 2 bounces is the regular case, 1 is for test
-      max_depth(5)
+      max_depth(5),
+      radius2(0.25f)
 {}
 
 void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
@@ -45,11 +46,11 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   // camera ray generation parameters
   // camera_data is handled by GLUT for updating camera parameters.
   // these parameters here are used in kernels and will be set before tracing.
+  context["frame_number"]->setUint(frame_number);  // for progressive rendering
   context["camera_position"]->setFloat(make_float3(0.0f));
   context["camera_u"]->setFloat(make_float3(0.0f));
   context["camera_v"]->setFloat(make_float3(0.0f));
   context["camera_w"]->setFloat(make_float3(0.0f));
-  context["frame_number"]->setUint(0);  // for progressive rendering
 
   hit_record_buffer = context->createBuffer(RT_BUFFER_OUTPUT);
   hit_record_buffer->setFormat(RT_FORMAT_USER);
@@ -68,11 +69,11 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   context->setMissProgram(
       rt_viewing_ray_type,
       context->createProgramFromPTXFile(getPTXPath("ray_tracing.cu"),
-                                                   "rt_viewing_ray_miss"));
+                                        "rt_viewing_ray_miss"));
 
   // photon tracing
 
-  context["total_emitted"]->setFloat(pt_width * pt_height);
+  context["total_emitted"]->setFloat(pt_width * pt_height);  // used to compute power per photon
   context["max_num_deposits"]->setUint(max_num_deposits);
   context["min_depth"]->setUint(min_depth);
   context["max_depth"]->setUint(max_depth);
@@ -80,7 +81,7 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   photon_record_buffer = context->createBuffer(RT_BUFFER_OUTPUT);
   photon_record_buffer->setFormat(RT_FORMAT_USER);
   photon_record_buffer->setElementSize(sizeof(PhotonRecord));
-  photon_record_buffer->setSize(pt_width * pt_height * max_num_deposits);  // to-do: should be a parameter!!!
+  photon_record_buffer->setSize(pt_width * pt_height * max_num_deposits);
   context["photon_record_buffer"]->set(photon_record_buffer);
 
   context->setRayGenerationProgram(
@@ -94,7 +95,8 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
 
   // knn search
 
-  photon_map_size = pow2roundup(pt_width * pt_height * max_num_deposits) - 1;  // to-do: should be a parameter!!!
+  photon_map_size = pow2roundup(pt_width * pt_height * max_num_deposits) - 1;
+
   photon_map = context->createBuffer(RT_BUFFER_INPUT);
   photon_map->setFormat(RT_FORMAT_USER);
   photon_map->setElementSize(sizeof(PhotonRecord));
@@ -103,6 +105,7 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
 
   // gathering
 
+  context["radius2"]->setFloat(radius2);
   context["output_buffer"]->set(
       createOutputBuffer(RT_FORMAT_FLOAT4, width, height));  // to-do: why FLOAT4?
 
@@ -124,7 +127,6 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
 }
 
 void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
-  // to-do: this part enables progressive rendering
   if (_camera_changed) {
     _camera_changed = false;
     frame_number = 0;
@@ -132,7 +134,7 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
 
   // to-do: for test only
   // render only one frame, but, actually, 'trace' is called twice.
-  // on Mac, can't see output if called 'trace' only once.
+  // on Mac, can't see output if calling 'trace' only once.
   // guess, it is related to camera information updates.
   //if (frame_number > 0)
   //  return;
@@ -150,34 +152,23 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
   RTsize buffer_width, buffer_height;
   buffer->getSize(buffer_width, buffer_height);
 
-  //cout << "initialization" << endl;
-
   // ray tracing
   context->launch(rt,
                   buffer_width,
                   buffer_height);
-
-  //cout << "ray tracing" << endl;
 
   // photon_tracing
   context->launch(pt,
                   pt_width,
                   pt_height);
 
-  //cout << "photon tracing" << endl;
-
   // build photon map
-
   createPhotonMap();
-
-  //cout << "create photon map" << endl;
 
   // gathering
   context->launch(gt,
                   buffer_width,
                   buffer_height);
-
-  //cout << "gathering" << endl;
 }
 
 Buffer PhotonMappingScene::getOutputBuffer() {
@@ -236,15 +227,14 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
   light.v2 = make_float3(-130.0f, 0.0, 0.0f);
   light.normal = normalize(cross(light.v1, light.v2));
   light.area = length(cross(light.v1, light.v2));
-  //light.power = make_float3(0.5e6f, 0.5e6f, 0.5e6f);  // to-do: power?
   light.power = make_float3(1e7f);
-  light.sqrt_num_samples = 1;
-  light.emitted = make_float3(75.0f, 75.0f, 75.0f);
+  light.sqrt_num_samples = 2;
+  light.emitted = make_float3(50.0f);
   // add this light to the engine
   Buffer light_buffer = context->createBuffer(RT_BUFFER_INPUT);
   light_buffer->setFormat(RT_FORMAT_USER);
   light_buffer->setElementSize(sizeof(ParallelogramLight));
-  light_buffer->setSize(1);
+  light_buffer->setSize(1);  // to-do: only one light now
   memcpy(light_buffer->map(), &light, sizeof(light));
   light_buffer->unmap();
   context["lights"]->setBuffer(light_buffer);
@@ -262,11 +252,11 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
   material->setClosestHitProgram(
       rt_viewing_ray_type,
       context->createProgramFromPTXFile(getPTXPath("ray_tracing.cu"),
-                                                   "rt_viewing_ray_closest_hit"));
+                                        "rt_viewing_ray_closest_hit"));
   material->setClosestHitProgram(
       pt_photon_ray_type,
       context->createProgramFromPTXFile(getPTXPath("photon_tracing.cu"),
-                                                   "pt_photon_ray_closest_hit"));
+                                        "pt_photon_ray_closest_hit"));
   material->setAnyHitProgram(
       gt_shadow_ray_type,
       context->createProgramFromPTXFile(getPTXPath("gathering.cu"),
@@ -400,41 +390,40 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Le"]->setFloat(15.0f, 15.0f, 15.0f);  // to-do: power and/or radiance for light source
+  gis.back()["Le"]->setFloat(make_float3(1.0f));  // to-do: power and/or radiance for light source
 
   GeometryGroup geometry_group = context->createGeometryGroup(gis.begin(), gis.end());
   geometry_group->setAcceleration(context->createAcceleration("Bvh", "Bvh"));
   context["top_object"]->set(geometry_group);
 }
 
-void PhotonMappingScene::createPhotonMap()
-{
-  int NUM_PHOTONS = pt_width * pt_height * max_num_deposits;  // to-do: temporarily
-  int _photon_map_size = NUM_PHOTONS;  // to-do: temporarily
+void PhotonMappingScene::createPhotonMap() {
+  int photons_size = pt_width * pt_height * max_num_deposits;
   SplitChoice _split_choice = LongestDim;
 
-  PhotonRecord* photons_data    = reinterpret_cast<PhotonRecord*>( photon_record_buffer->map() );
-  PhotonRecord* photon_map_data = reinterpret_cast<PhotonRecord*>( photon_map->map() );
+  // the following is modified from createPhotonMap() in progressivePhotonMap/ppm.cpp
+  PhotonRecord* photons_data    = reinterpret_cast<PhotonRecord*>( photon_record_buffer->map() );  // input
+  PhotonRecord* photon_map_data = reinterpret_cast<PhotonRecord*>( photon_map->map() );  // output
 
-  for( unsigned int i = 0; i < _photon_map_size; ++i ) {
-    photon_map_data[i].power = make_float3( 0.0f );
+  for( unsigned int i = 0; i < photon_map_size; ++i ) {
+    photon_map_data[i].power =
+    photon_map_data[i].position =
+    photon_map_data[i].normal =
+    photon_map_data[i].incoming = make_float3(0.0f);
+    photon_map_data[i].axis = 0;
   }
 
   // Push all valid photons to front of list
   unsigned int valid_photons = 0;
-  PhotonRecord** temp_photons = new PhotonRecord*[NUM_PHOTONS];
-  for( unsigned int i = 0; i < NUM_PHOTONS; ++i ) {
+  PhotonRecord** temp_photons = new PhotonRecord*[photons_size];  // a pointer array
+  for( unsigned int i = 0; i < photons_size; ++i ) {
     if( fmaxf( photons_data[i].power ) > 0.0f ) {
       temp_photons[valid_photons++] = &photons_data[i];
     }
   }
 
-  //std::cerr << " ** valid_photon/NUM_PHOTONS =  " 
-  //          << valid_photons<<"/"<<NUM_PHOTONS
-  //          <<" ("<<valid_photons/static_cast<float>(NUM_PHOTONS)<<")\n";
-
   // Make sure we arent at most 1 less than power of 2
-  valid_photons = valid_photons >= _photon_map_size ? _photon_map_size : valid_photons;
+  valid_photons = valid_photons >= photon_map_size ? photon_map_size : valid_photons;
 
   float3 bbmin = make_float3(0.0f);
   float3 bbmax = make_float3(0.0f);

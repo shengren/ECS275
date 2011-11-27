@@ -20,6 +20,7 @@ rtDeclareVariable(uint, frame_number, , );
 rtDeclareVariable(uint2, launch_dim, rtLaunchDim, );
 rtDeclareVariable(uint, gt_shadow_ray_type, , );
 rtDeclareVariable(rtObject, top_object, , );
+rtDeclareVariable(float, radius2, , );
 
 // to-do: photon_map (rtBuffer) cannot be passed through function parameters
 // hence this function is not included in 'inlines.h'
@@ -168,7 +169,6 @@ RT_PROGRAM void gt_ray_generation() {
   // indirect illumination
   float3 total_flux = make_float3(0.0f);
   int num_photons = 0;  // to-do: unused now
-  float radius2 = 0.25f;
 
   estimateRadiance(hr, radius2, total_flux, num_photons);
 

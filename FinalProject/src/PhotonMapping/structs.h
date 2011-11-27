@@ -48,9 +48,9 @@ struct ParallelogramLight {
   optix::float3 v2;
   optix::float3 normal;
   float area;
-  optix::float3 power;
+  optix::float3 power;  // for photon tracing
   optix::uint sqrt_num_samples;
-  optix::float3 emitted;
+  optix::float3 emitted;  // for direct illumination, to-do: Le has different values
 };
 
 #endif  // STRUCTS_H_

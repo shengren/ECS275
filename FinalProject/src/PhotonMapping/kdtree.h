@@ -11,16 +11,13 @@
 using namespace optix;
 
 // from progressivePhotonMap/ppm.h
-// begin
 #define PPM_X (1 << 0)
 #define PPM_Y (1 << 1)
 #define PPM_Z (1 << 2)
 #define PPM_LEAF (1 << 3)
 #define PPM_NULL (1 << 4)
-// end
 
 // modified from progressivePhotonMap/ppm.cpp
-// begin
 
 enum SplitChoice {
   RoundRobin,

@@ -4,6 +4,7 @@
 #include <string>
 
 #include <optixu/optixpp_namespace.h>
+#include <optixu/optixu_math_namespace.h>
 #include <sutil.h>
 #include <GLUTDisplay.h>
 
@@ -17,7 +18,7 @@ class PhotonMappingScene : public SampleScene {
   virtual optix::Buffer getOutputBuffer();
 
   // all function names follow the convention in the base class
-  void setDisplayResolution(const unsigned int w, const unsigned int h) {
+  void setDisplayResolution(const optix::uint w, const optix::uint h) {
     width = w;
     height = h;
   }
@@ -48,22 +49,25 @@ class PhotonMappingScene : public SampleScene {
     gt,
     num_programs
   };
+
   enum RayType {
     rt_viewing_ray_type,
     pt_photon_ray_type,
     gt_shadow_ray_type,
     num_ray_types
   };
+
   optix::Context& context;  // refer to _context from SampleScene
-  unsigned int width;
-  unsigned int height;
-  unsigned int frame_number;  // to-do: enable progressive rendering
-  unsigned int pt_width;
-  unsigned int pt_height;
-  unsigned int max_num_deposits;
-  unsigned int min_depth;
-  unsigned int max_depth;
-  unsigned int photon_map_size;
+  optix::uint width;
+  optix::uint height;
+  optix::uint frame_number;  // to-do: enable progressive rendering
+  optix::uint pt_width;
+  optix::uint pt_height;
+  optix::uint max_num_deposits;
+  optix::uint min_depth;
+  optix::uint max_depth;
+  optix::uint photon_map_size;
+  float radius2;
   optix::Buffer hit_record_buffer;
   optix::Buffer photon_record_buffer;
   optix::Buffer photon_map;

@@ -68,10 +68,6 @@ __device__ __inline__ void generatePhoton(const ParallelogramLight& light,
   sample_power = light.power;
 }
 
-__device__ __inline__ float getDiffuseBRDF() {
-  return 0.9f / M_PI;  // to-do: Kd is defined at where?
-}
-
 __device__ __inline__ float getGeometry(optix::float3 ns,
                                         optix::float3 nl,
                                         optix::float3 dir,
@@ -80,8 +76,6 @@ __device__ __inline__ float getGeometry(optix::float3 ns,
 }
 
 // modified from progressivePhotonMap/ppm.cpp
-// begin
-
 // Finds the smallest power of 2 greater or equal to x.
 inline unsigned int pow2roundup(unsigned int x)
 {
@@ -93,6 +87,5 @@ inline unsigned int pow2roundup(unsigned int x)
   x |= x >> 16;
   return x+1;
 }
-// end
 
 #endif  // INLINES_H_
