@@ -3,11 +3,10 @@
 
 #include <optixu/optixu_math_namespace.h>
 
-#define EXCEPTION (1 << 5)
+#define HIT (1 << 5)
 #define HIT_LIGHT (1 << 6)
-#define HIT (1 << 7)
-#define HIT_BACKGROUND (1 << 8)
-//#define IN_SHADOW
+#define HIT_BACKGROUND (1 << 7)
+#define EXCEPTION (1 << 8)
 
 struct HitRecord {
   optix::uint flags;

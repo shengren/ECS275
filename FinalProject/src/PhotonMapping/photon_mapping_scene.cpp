@@ -18,13 +18,13 @@ using namespace optix;
 
 PhotonMappingScene::PhotonMappingScene()
     : context(_context),
-      width(1024),
-      height(1024),
+      width(512),
+      height(512),
       frame_number(0),
-      pt_width(100),
-      pt_height(100),
+      pt_width(1000),
+      pt_height(1000),
       max_num_deposits(3),
-      min_depth(1),  // start recording from 2 bounces is the regular case, 1 is for test
+      min_depth(2),  // start recording from 2 bounces is the regular case, 1 is for test
       max_depth(5)
 {}
 
@@ -72,6 +72,7 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
 
   // photon tracing
 
+  context["total_emitted"]->setFloat(pt_width * pt_height);
   context["max_num_deposits"]->setUint(max_num_deposits);
   context["min_depth"]->setUint(min_depth);
   context["max_depth"]->setUint(max_depth);
@@ -101,8 +102,6 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   context["photon_map"]->set(photon_map);
 
   // gathering
-  
-  context["total_emitted"]->setFloat(pt_width * pt_height);
 
   context["output_buffer"]->set(
       createOutputBuffer(RT_FORMAT_FLOAT4, width, height));  // to-do: why FLOAT4?
@@ -135,10 +134,10 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
   // render only one frame, but, actually, 'trace' is called twice.
   // on Mac, can't see output if called 'trace' only once.
   // guess, it is related to camera information updates.
-  if (frame_number > 0)
-    return;
+  //if (frame_number > 0)
+  //  return;
 
-  context["frame_number"]->setUint(frame_number++);
+  context["frame_number"]->setUint(++frame_number);
 
   // set the current camera parameters
   context["camera_position"]->setFloat(camera_data.eye);
@@ -151,34 +150,34 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
   RTsize buffer_width, buffer_height;
   buffer->getSize(buffer_width, buffer_height);
 
-  cout << "initialization" << endl;
+  //cout << "initialization" << endl;
 
   // ray tracing
   context->launch(rt,
                   buffer_width,
                   buffer_height);
 
-  cout << "ray tracing" << endl;
+  //cout << "ray tracing" << endl;
 
   // photon_tracing
   context->launch(pt,
                   pt_width,
                   pt_height);
 
-  cout << "photon tracing" << endl;
+  //cout << "photon tracing" << endl;
 
   // build photon map
 
   createPhotonMap();
 
-  cout << "create photon map" << endl;
+  //cout << "create photon map" << endl;
 
   // gathering
   context->launch(gt,
                   buffer_width,
                   buffer_height);
 
-  cout << "gathering" << endl;
+  //cout << "gathering" << endl;
 }
 
 Buffer PhotonMappingScene::getOutputBuffer() {
@@ -237,7 +236,8 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
   light.v2 = make_float3(-130.0f, 0.0, 0.0f);
   light.normal = normalize(cross(light.v1, light.v2));
   light.area = length(cross(light.v1, light.v2));
-  light.power = make_float3(0.5e6f, 0.5e6f, 0.5e6f);  // to-do: power?
+  //light.power = make_float3(0.5e6f, 0.5e6f, 0.5e6f);  // to-do: power?
+  light.power = make_float3(1e7f);
   light.sqrt_num_samples = 1;
   light.emitted = make_float3(75.0f, 75.0f, 75.0f);
   // add this light to the engine

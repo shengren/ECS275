@@ -18,6 +18,7 @@ rtBuffer<ParallelogramLight> lights;  // to-do: only have parallelogram lights
 rtDeclareVariable(uint2, launch_index, rtLaunchIndex, );
 rtDeclareVariable(uint2, launch_dim, rtLaunchDim, );
 rtDeclareVariable(uint, frame_number, , );
+rtDeclareVariable(float, total_emitted, , );
 
 RT_PROGRAM void pt_ray_generation() {
   uint index = launch_index.y * launch_dim.x + launch_index.x;  // to-do: is 1D launch enough?
@@ -46,7 +47,7 @@ RT_PROGRAM void pt_ray_generation() {
           1e-10f);
 
   PTPhotonRayPayload payload;
-  payload.power = sample_power;
+  payload.power = sample_power / total_emitted;  // to-do: real power per photon?
   payload.index = index;
   payload.num_deposits = 0;
   payload.depth = 1;
