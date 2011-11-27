@@ -61,7 +61,7 @@ __device__ __inline__ void estimateRadiance(const HitRecord& hr,
 
       // accumulate photons
       if (distance2 <= radius2) {
-        if (dot(hr.normal, pr.normal) > 1e-5f) {  // on the same plane?
+        if (dot(hr.normal, pr.normal) > 1e-2f) {  // on the same plane?
           total_flux += pr.power * getDiffuseBRDF(hr.Rho_d);  // with BRDF
           num_photons++;
         }
@@ -179,6 +179,7 @@ RT_PROGRAM void gt_ray_generation() {
 
   // output
   //float3 result = direct * hr.attenuation;
+  //float3 result = indirect * hr.attenuation;
   float3 result = (direct + indirect) * hr.attenuation;
 
   if (frame_number == 1) {
