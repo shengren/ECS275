@@ -32,7 +32,7 @@ RT_PROGRAM void rt_ray_generation() {
   Ray ray(camera_position,  // origin
           normalize(offset.x * camera_u + offset.y * camera_v + camera_w),  // direction
           rt_viewing_ray_type,  // type
-          1e-10f);  // tmin; tmax uses default
+          1e-2f);  // tmin; tmax uses default
 
   RTViewingRayPayload payload;
   payload.attenuation = make_float3(1.0f);
@@ -95,16 +95,17 @@ RT_PROGRAM void rt_viewing_ray_closest_hit() {
   // specular surface, recursion
   rt_viewing_ray_payload.depth++;  // to-do: unused now
   float3 reflection_direction = reflect(rt_viewing_ray.direction, ffnormal);  // inversed incoming
-  rt_viewing_ray_payload.attenuation *= getSpecularBRDF(reflection_direction,  // incoming
-                                                        ffnormal,  // normal
-                                                        -rt_viewing_ray.direction,  // outgoing
-                                                        Rho_s,  // not Ks but for computing Ks
-                                                        shininess);  // the power factor
-  rt_viewing_ray_payload.attenuation *= dot(reflection_direction, ffnormal);  // cosine term
+  //rt_viewing_ray_payload.attenuation *= getSpecularBRDF(reflection_direction,  // incoming
+  //                                                      ffnormal,  // normal
+  //                                                      -rt_viewing_ray.direction,  // outgoing
+  //                                                      Rho_s,  // not Ks but for computing Ks
+  //                                                      shininess);  // the power factor
+  //rt_viewing_ray_payload.attenuation *= dot(reflection_direction, ffnormal);  // cosine term
+  rt_viewing_ray_payload.attenuation *= Rho_s;
   Ray ray(hit_point,
           reflection_direction,
           rt_viewing_ray_type,
-          1e-10f);
+          1e-2f);
   rtTrace(top_object, ray, rt_viewing_ray_payload);
 }
 

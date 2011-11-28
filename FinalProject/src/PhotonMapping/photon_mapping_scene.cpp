@@ -18,8 +18,8 @@ using namespace optix;
 
 PhotonMappingScene::PhotonMappingScene()
     : context(_context),
-      width(768),
-      height(768),
+      width(512),
+      height(512),
       sqrt_num_subpixels(2),
       frame_number(0),
       pt_width(1000),
@@ -33,6 +33,9 @@ PhotonMappingScene::PhotonMappingScene()
 void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   context->setEntryPointCount(num_programs);  // rt, pt, gt = 3
   context->setStackSize(2000);  // to-do: tuning
+
+  context->setPrintEnabled(1);
+  context->setPrintBufferSize(1024);
 
   context->setRayTypeCount(num_ray_types);
   context["rt_viewing_ray_type"]->setUint(rt_viewing_ray_type);
@@ -196,9 +199,9 @@ Buffer PhotonMappingScene::getOutputBuffer() {
   return context["output_buffer"]->getBuffer();
 }
 
-GeometryInstance PhotonMappingScene::createParallelogram(const float3& anchor,
-                                                         const float3& offset1,
-                                                         const float3& offset2,
+GeometryInstance PhotonMappingScene::createParallelogram(const float3 anchor,
+                                                         const float3 offset1,
+                                                         const float3 offset2,
                                                          const Program& intersection,
                                                          const Program& bounding_box,
                                                          const Material& material) {
@@ -217,6 +220,29 @@ GeometryInstance PhotonMappingScene::createParallelogram(const float3& anchor,
   g["anchor"]->setFloat(anchor);
   g["v1"]->setFloat(v1);
   g["v2"]->setFloat(v2);
+
+  GeometryInstance gi = context->createGeometryInstance();
+  gi->setGeometry(g);
+  gi->addMaterial(material);
+  gi["Le"]->setFloat(0.0f, 0.0f, 0.0f);
+  gi["Rho_d"]->setFloat(0.0f, 0.0f, 0.0f);
+  gi["Rho_s"]->setFloat(0.0f, 0.0f, 0.0f);
+  gi["shininess"]->setFloat(0.0f);
+
+  return gi;
+}
+
+GeometryInstance PhotonMappingScene::createSphere(const float3 center,
+                                                  const float radius,
+                                                  const optix::Program& intersection,
+                                                  const optix::Program& bounding_box,
+                                                  const optix::Material& material) {
+  Geometry g = context->createGeometry();
+  g->setPrimitiveCount(1);
+  g->setIntersectionProgram(intersection);
+  g->setBoundingBoxProgram(bounding_box);
+
+  g["sphere"]->setFloat(center.x, center.y, center.z, radius);
 
   GeometryInstance gi = context->createGeometryInstance();
   gi->setGeometry(g);
@@ -267,6 +293,12 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
       getPTXPath("parallelogram.cu"), "intersect");
   Program para_bounding_box = context->createProgramFromPTXFile(
       getPTXPath("parallelogram.cu"), "bounds");
+
+  // load programs for geometry sphere
+  Program sphere_intersection = context->createProgramFromPTXFile(
+      getPTXPath("sphere.cu"), "robust_intersect");
+  Program sphere_bounding_box = context->createProgramFromPTXFile(
+      getPTXPath("sphere.cu"), "bounds");
 
   // create materials
   Material material = context->createMaterial();
@@ -330,6 +362,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                                     para_bounding_box,
                                     material));
   gis.back()["Rho_d"]->setFloat(red);
+/*
   // Short block
   gis.push_back(createParallelogram(make_float3(130.0f, 165.0f, 65.0f),
                                     make_float3(-48.0f, 0.0f, 160.0f),
@@ -402,6 +435,22 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                                     para_bounding_box,
                                     material));
   gis.back()["Rho_d"]->setFloat(white);
+*/
+  // sphere mirror
+  gis.push_back(createSphere(make_float3(380.0f, 80.0f, 351.0f),
+                             80.0f,
+                             sphere_intersection,
+                             sphere_bounding_box,
+                             material));
+  gis.back()["Rho_s"]->setFloat(make_float3(0.99f));
+  gis.back()["shininess"]->setFloat(1.0f);
+  // sphere glass
+  gis.push_back(createSphere(make_float3(170.0f, 80.0f, 169.0f),
+                             80.0f,
+                             sphere_intersection,
+                             sphere_bounding_box,
+                             material));
+  gis.back()["Rho_d"]->setFloat(make_float3(0.99f));
 
   // Parallelogram light, appearing in both the light buffer and geometry objects
   // make sure these two are identical in geometry, e.g. having the same normal vector

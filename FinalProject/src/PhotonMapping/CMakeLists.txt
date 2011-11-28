@@ -33,6 +33,7 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     gathering.cu
     output.cu
     parallelogram.cu
+    sphere.cu
     inlines.h
     structs.h
     kdtree.h

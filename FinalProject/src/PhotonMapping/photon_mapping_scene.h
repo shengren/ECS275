@@ -35,9 +35,15 @@ class PhotonMappingScene : public SampleScene {
   void createScene(InitialCameraData& camera_data);
   void createCornellBox(InitialCameraData& camera_data);
   optix::GeometryInstance createParallelogram(
-      const float3& anchor,
-      const float3& offset1,
-      const float3& offset2,
+      const float3 anchor,
+      const float3 offset1,
+      const float3 offset2,
+      const optix::Program& intersection,
+      const optix::Program& bounding_box,
+      const optix::Material& material);
+  optix::GeometryInstance createSphere(
+      const float3 center,
+      const float radius,
       const optix::Program& intersection,
       const optix::Program& bounding_box,
       const optix::Material& material);

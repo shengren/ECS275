@@ -128,16 +128,16 @@ __device__ __inline__ float3 directIllumination(const HitRecord& hr) {
       float distance_to_light = length(sample_on_light - hr.position);
       float3 direction_to_light = normalize(sample_on_light - hr.position);
 
-      if (dot(hr.normal, direction_to_light) > 1e-5f &&
-          dot(light.normal, -direction_to_light) > 1e-5f) {  // trace shadow ray
+      if (dot(hr.normal, direction_to_light) > 1e-2f &&
+          dot(light.normal, -direction_to_light) > 1e-2f) {  // trace shadow ray
         GTShadowRayPayload payload;
         payload.blocked = false;
 
         Ray ray(hr.position,
                 direction_to_light,
                 gt_shadow_ray_type,
-                1e-10f,
-                distance_to_light - 1e-10f);
+                1e-2f,
+                distance_to_light - 1e-2f);
 
         rtTrace(top_object, ray, payload);  // to-do: hitting the light source doesn't count
 

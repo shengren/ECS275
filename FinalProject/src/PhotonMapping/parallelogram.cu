@@ -60,8 +60,8 @@ RT_PROGRAM void intersect(int primIdx)
 RT_PROGRAM void intersect(int primIdx)
 {
   float3 n = make_float3( plane );
-  if (dot(ray.direction, n) > -1e-10f)  // >= 0
-    return;
+  //if (dot(ray.direction, n) > -1e-10f)  // >= 0
+  //  return;
   float t = dot(anchor - ray.origin, n) / dot(ray.direction, n);
   if( t > ray.tmin && t < ray.tmax ) {
     float3 p = ray.origin + ray.direction * t;

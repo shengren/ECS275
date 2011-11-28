@@ -44,7 +44,7 @@ RT_PROGRAM void pt_ray_generation() {
   Ray ray(sample_position,
           sample_direction,
           pt_photon_ray_type,
-          1e-10f);
+          1e-2f);
 
   PTPhotonRayPayload payload;
   payload.power = sample_power / total_emitted;  // to-do: real power per photon?
@@ -111,11 +111,12 @@ RT_PROGRAM void pt_photon_ray_closest_hit() {
     pt_photon_ray_payload.power *= getDiffuseBRDF(Rho_d);
   } else {  // specular
     next_direction = reflect(pt_photon_ray.direction, ffnormal);  // inversed incoming
-    pt_photon_ray_payload.power *= getSpecularBRDF(-pt_photon_ray.direction,  // incoming
-                                                   ffnormal,
-                                                   next_direction,  // outgoing
-                                                   Rho_s,
-                                                   shininess);
+    //pt_photon_ray_payload.power *= getSpecularBRDF(-pt_photon_ray.direction,  // incoming
+    //                                               ffnormal,
+    //                                               next_direction,  // outgoing
+    //                                               Rho_s,
+    //                                               shininess);
+    pt_photon_ray_payload.power *= Rho_s;
   }
   // to-do: confirm that there is no cosine term during photon transport
   //pt_photon_ray_payload.power *= dot(-pt_photon_ray.direction, ffnormal);  // cosine term
@@ -124,7 +125,7 @@ RT_PROGRAM void pt_photon_ray_closest_hit() {
   Ray ray(hit_point,
           next_direction,
           pt_photon_ray_type,
-          1e-10f);
+          1e-2f);
 
   rtTrace(top_object, ray, pt_photon_ray_payload);
 }
