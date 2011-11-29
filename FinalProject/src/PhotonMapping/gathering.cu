@@ -9,8 +9,8 @@
 using namespace optix;
 
 // variables used in multiple programs
-//rtBuffer<float4, 2> output_buffer;
-rtBuffer<float3, 2> subpixel_accumulator;
+rtBuffer<float4, 2> output_buffer;
+//rtBuffer<float3, 2> subpixel_accumulator;
 rtDeclareVariable(uint2, launch_index, rtLaunchIndex, );
 
 // gathering, ray generation
@@ -50,8 +50,8 @@ __device__ __inline__ void estimateRadiance(const HitRecord& hr,
   do {
     // debugging assertion
     if (!(node < photon_map_size)) {
-      //output_buffer[launch_index] = make_float4(1.0f, 1.0f, 0.0f, 0.0f);
-      subpixel_accumulator[launch_index] = make_float3(1.0f, 1.0f, 0.0f);
+      output_buffer[launch_index] = make_float4(1.0f, 1.0f, 0.0f, 0.0f);
+      //subpixel_accumulator[launch_index] = make_float3(1.0f, 1.0f, 0.0f);
       return;
     }
 
@@ -63,10 +63,10 @@ __device__ __inline__ void estimateRadiance(const HitRecord& hr,
 
       // accumulate photons
       if (distance2 <= radius2) {
-        if (dot(hr.normal, pr.normal) > 1e-2f) {  // on the same plane?
+        //if (dot(hr.normal, pr.normal) > 1e-2f) {  // on the same plane?
           total_flux += pr.power * getDiffuseBRDF(hr.Rho_d);  // with BRDF
           num_photons++;
-        }
+        //}
       }
 
       // Recurse
@@ -81,8 +81,8 @@ __device__ __inline__ void estimateRadiance(const HitRecord& hr,
         if (d * d < radius2) {
           // debugging assertion
           if (!(stack_current + 1 < MAX_DEPTH)) {
-            //output_buffer[launch_index] = make_float4(1.0f, 1.0f, 0.0f, 0.0f);
-            subpixel_accumulator[launch_index] = make_float3(1.0f, 1.0f, 0.0f);
+            output_buffer[launch_index] = make_float4(1.0f, 1.0f, 0.0f, 0.0f);
+            //subpixel_accumulator[launch_index] = make_float3(1.0f, 1.0f, 0.0f);
             return;
           }
 
@@ -91,8 +91,8 @@ __device__ __inline__ void estimateRadiance(const HitRecord& hr,
 
         // debugging assertion
         if (!(stack_current + 1 < MAX_DEPTH)) {
-          //output_buffer[launch_index] = make_float4(1.0f, 1.0f, 0.0f, 0.0f);
-          subpixel_accumulator[launch_index] = make_float3(1.0f, 1.0f, 0.0f);
+          output_buffer[launch_index] = make_float4(1.0f, 1.0f, 0.0f, 0.0f);
+          //subpixel_accumulator[launch_index] = make_float3(1.0f, 1.0f, 0.0f);
           return;
         }
 
@@ -160,15 +160,15 @@ __device__ __inline__ float3 directIllumination(const HitRecord& hr) {
 RT_PROGRAM void gt_ray_generation() {
   // clean the output buffer
   if (frame_number == 1) {
-    //output_buffer[launch_index] = make_float4(0.0f);
-    subpixel_accumulator[launch_index] = make_float3(0.0f);
+    output_buffer[launch_index] = make_float4(0.0f);
+    //subpixel_accumulator[launch_index] = make_float3(0.0f);
   }
 
   const HitRecord& hr = hit_record_buffer[launch_index];
 
   if (!(hr.flags & HIT)) {
-    //output_buffer[launch_index] = make_float4(hr.attenuation);
-    subpixel_accumulator[launch_index] += hr.attenuation;
+    output_buffer[launch_index] = make_float4(hr.attenuation);
+    //subpixel_accumulator[launch_index] += hr.attenuation;
     return;
   }
 
@@ -188,7 +188,6 @@ RT_PROGRAM void gt_ray_generation() {
   //float3 result = indirect * hr.attenuation;
   float3 result = (direct + indirect) * hr.attenuation;
 
-  /*
   if (frame_number == 1) {
     output_buffer[launch_index] = make_float4(result, 0.0f);
   } else {
@@ -197,16 +196,15 @@ RT_PROGRAM void gt_ray_generation() {
     float3 old_result = make_float3(output_buffer[launch_index]);
     output_buffer[launch_index] = make_float4(a * result + b * old_result, 0.0f);
   }
-  */
-  subpixel_accumulator[launch_index] += result;
+  //subpixel_accumulator[launch_index] += result;
 }
 
 // gathering, exception
 rtDeclareVariable(float3, bad_color, , );
 
 RT_PROGRAM void gt_exception() {
-  //output_buffer[launch_index] = make_float4(bad_color);
-  subpixel_accumulator[launch_index] = bad_color;
+  output_buffer[launch_index] = make_float4(bad_color);
+  //subpixel_accumulator[launch_index] = bad_color;
 
   rtPrintExceptionDetails();  // to-do: for debugging
 }

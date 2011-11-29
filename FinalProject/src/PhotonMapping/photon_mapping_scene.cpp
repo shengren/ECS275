@@ -18,13 +18,13 @@ using namespace optix;
 
 PhotonMappingScene::PhotonMappingScene()
     : context(_context),
-      width(512),
-      height(512),
-      sqrt_num_subpixels(2),
+      width(256),
+      height(256),
+      sqrt_num_subpixels(1),  // to-do: disabled
       frame_number(0),
-      pt_width(1024),
-      pt_height(1024),
-      max_num_deposits(3),
+      pt_width(128),
+      pt_height(128),
+      max_num_deposits(2),
       min_depth(2),  // start recording from 2 bounces is the regular case, 1 is for test
       max_depth(5),
       radius2(400.0f)
@@ -34,9 +34,9 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   context->setEntryPointCount(num_programs);  // rt, pt, gt = 3
   context->setStackSize(2000);  // to-do: tuning
 
-  // enable print in kernels for debugging
-  context->setPrintEnabled(1);
-  context->setPrintBufferSize(1024);
+  //// enable print in kernels for debugging
+  //context->setPrintEnabled(1);
+  //context->setPrintBufferSize(1024);
 
   context->setRayTypeCount(num_ray_types);
   context["rt_viewing_ray_type"]->setUint(rt_viewing_ray_type);
@@ -60,8 +60,7 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   hit_record_buffer = context->createBuffer(RT_BUFFER_OUTPUT);
   hit_record_buffer->setFormat(RT_FORMAT_USER);
   hit_record_buffer->setElementSize(sizeof(HitRecord));
-  hit_record_buffer->setSize(width * sqrt_num_subpixels,
-                             height * sqrt_num_subpixels);
+  hit_record_buffer->setSize(width, height);
   context["hit_record_buffer"]->set(hit_record_buffer);
 
   context->setRayGenerationProgram(
@@ -112,11 +111,13 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   // gathering
 
   context["radius2"]->setFloat(radius2);
-  subpixel_accumulator = context->createBuffer(RT_BUFFER_OUTPUT,
-                                               RT_FORMAT_FLOAT3,
-                                               width * sqrt_num_subpixels,
-                                               height * sqrt_num_subpixels);
-  context["subpixel_accumulator"]->set(subpixel_accumulator);
+  //subpixel_accumulator = context->createBuffer(RT_BUFFER_OUTPUT,
+  //                                             RT_FORMAT_FLOAT3,
+  //                                             width * sqrt_num_subpixels,
+  //                                             height * sqrt_num_subpixels);
+  //context["subpixel_accumulator"]->set(subpixel_accumulator);
+  context["output_buffer"]->set(
+      createOutputBuffer(RT_FORMAT_FLOAT4, width, height));  // to-do: why FLOAT4?
 
   context->setRayGenerationProgram(
       gt,
@@ -129,14 +130,14 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
 
   // output
 
-  context->setRayGenerationProgram(
-      ot,
-      context->createProgramFromPTXFile(getPTXPath("output.cu"),
-                                        "ot_ray_generation"));
+  //context->setRayGenerationProgram(
+  //    ot,
+  //    context->createProgramFromPTXFile(getPTXPath("output.cu"),
+  //                                      "ot_ray_generation"));
 
-  context["sqrt_num_subpixels"]->setUint(sqrt_num_subpixels);
-  context["output_buffer"]->set(
-      createOutputBuffer(RT_FORMAT_FLOAT4, width, height));  // to-do: why FLOAT4?
+  //context["sqrt_num_subpixels"]->setUint(sqrt_num_subpixels);
+  //context["output_buffer"]->set(
+  //    createOutputBuffer(RT_FORMAT_FLOAT4, width, height));  // to-do: why FLOAT4?
 
   // scene
 
@@ -182,8 +183,8 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
 
   // ray tracing
   context->launch(rt,
-                  width * sqrt_num_subpixels,//buffer_width,
-                  height * sqrt_num_subpixels);//buffer_height);
+                  width,//buffer_width,
+                  height);//buffer_height);
 
   // photon_tracing
   context->launch(pt,
@@ -195,13 +196,13 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
 
   // gathering
   context->launch(gt,
-                  width * sqrt_num_subpixels,//buffer_width,
-                  height * sqrt_num_subpixels);//buffer_height);
+                  width,//buffer_width,
+                  height);//buffer_height);
 
-  // output
-  context->launch(ot,
-                  width,
-                  height);
+  //// output
+  //context->launch(ot,
+  //                width,
+  //                height);
 }
 
 Buffer PhotonMappingScene::getOutputBuffer() {

@@ -79,7 +79,7 @@ class PhotonMappingScene : public SampleScene {
   optix::Buffer hit_record_buffer;
   optix::Buffer photon_record_buffer;
   optix::Buffer photon_map;
-  optix::Buffer subpixel_accumulator;
+  //optix::Buffer subpixel_accumulator;  // to-do: disable this anti-aliasing implementation
 };
 
 #endif  // PHOTON_MAPPING_SCENE_H_
