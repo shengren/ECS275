@@ -37,6 +37,7 @@ RT_PROGRAM void rt_ray_generation() {
   RTViewingRayPayload payload;
   payload.attenuation = make_float3(1.0f);
   payload.depth = 1;  // to-do: unused now
+  payload.inside = false;
 
   rtTrace(top_object, ray, payload);
 }
@@ -61,7 +62,8 @@ rtDeclareVariable(float3, geometric_normal, attribute geometric_normal, );
 rtDeclareVariable(float3, Le, , );
 rtDeclareVariable(float3, Rho_d, , );
 rtDeclareVariable(float3, Rho_s, , );
-rtDeclareVariable(float, shininess, , );
+rtDeclareVariable(float, shininess, , );  // unused now
+rtDeclareVariable(float, index_of_refraction, , );  // non-zero indiates a refraction surface, Rho_s is needed as well
 
 RT_PROGRAM void rt_viewing_ray_closest_hit() {
   if (fmaxf(Le) > 0.0f) {  // light source?
@@ -92,18 +94,30 @@ RT_PROGRAM void rt_viewing_ray_closest_hit() {
     return;
   }
 
-  // specular surface, recursion
   rt_viewing_ray_payload.depth++;  // to-do: unused now
-  float3 reflection_direction = reflect(rt_viewing_ray.direction, ffnormal);  // inversed incoming
-  //rt_viewing_ray_payload.attenuation *= getSpecularBRDF(reflection_direction,  // incoming
-  //                                                      ffnormal,  // normal
-  //                                                      -rt_viewing_ray.direction,  // outgoing
-  //                                                      Rho_s,  // not Ks but for computing Ks
-  //                                                      shininess);  // the power factor
-  //rt_viewing_ray_payload.attenuation *= dot(reflection_direction, ffnormal);  // cosine term
-  rt_viewing_ray_payload.attenuation *= Rho_s;
+  float3 next_direction;
+  if (index_of_refraction > 0.0) {  // refraction
+    float iof = (rt_viewing_ray_payload.inside) ?
+                (1.0f / index_of_refraction) : index_of_refraction;
+    refract(next_direction, rt_viewing_ray.direction, ffnormal, iof);
+    if (rt_viewing_ray_payload.inside) {
+      //float p = max(hit_t, 1.0f);
+      //rt_viewing_ray_payload.attenuation *= powf(Rho_s.x, p);  // Beer's law, assume Rho_x=y=z
+      rt_viewing_ray_payload.attenuation *= Rho_s;
+    }
+    rt_viewing_ray_payload.inside = !rt_viewing_ray_payload.inside;
+  } else {  // specular surface, recursion
+    next_direction = reflect(rt_viewing_ray.direction, ffnormal);  // inversed incoming
+    //rt_viewing_ray_payload.attenuation *= getSpecularBRDF(reflection_direction,  // incoming
+    //                                                      ffnormal,  // normal
+    //                                                      -rt_viewing_ray.direction,  // outgoing
+    //                                                      Rho_s,  // not Ks but for computing Ks
+    //                                                      shininess);  // the power factor
+    //rt_viewing_ray_payload.attenuation *= dot(reflection_direction, ffnormal);  // cosine term
+    rt_viewing_ray_payload.attenuation *= Rho_s;
+  }
   Ray ray(hit_point,
-          reflection_direction,
+          next_direction,
           rt_viewing_ray_type,
           1e-2f);
   rtTrace(top_object, ray, rt_viewing_ray_payload);

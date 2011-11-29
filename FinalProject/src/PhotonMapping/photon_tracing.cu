@@ -52,6 +52,7 @@ RT_PROGRAM void pt_ray_generation() {
   payload.num_deposits = 0;
   payload.depth = 1;
   payload.seed = seed;
+  payload.inside = false;
 
   rtTrace(top_object, ray, payload);
 }
@@ -72,7 +73,8 @@ rtDeclareVariable(float3, geometric_normal, attribute geometric_normal, );
 rtDeclareVariable(float3, Le, , );
 rtDeclareVariable(float3, Rho_d, , );
 rtDeclareVariable(float3, Rho_s, , );
-rtDeclareVariable(float, shininess, , );
+rtDeclareVariable(float, shininess, , );  // unused now
+rtDeclareVariable(float, index_of_refraction, , );  // non-zero indiates a refraction surface, Rho_s is needed as well
 
 RT_PROGRAM void pt_photon_ray_closest_hit() {
   if (fmaxf(Le) > 0.0f) {  // light source
@@ -109,7 +111,17 @@ RT_PROGRAM void pt_photon_ray_closest_hit() {
     next_direction = sampleUnitHemisphereCosine(pt_photon_ray_payload.seed,
                                                 ffnormal);
     pt_photon_ray_payload.power *= getDiffuseBRDF(Rho_d);
-  } else {  // specular
+  } else if (index_of_refraction > 0.0) {  // refraction
+    float iof = (pt_photon_ray_payload.inside) ?
+                (1.0f / index_of_refraction) : index_of_refraction;
+    refract(next_direction, pt_photon_ray.direction, ffnormal, iof);
+    if (pt_photon_ray_payload.inside) {
+      //float p = max(hit_t, 1.0f);
+      //pt_photon_ray_payload.power *= powf(Rho_s.x, p);  // Beer's law, assume Rho_x=y=z
+      pt_photon_ray_payload.power *= Rho_s;
+    }
+    pt_photon_ray_payload.inside = !pt_photon_ray_payload.inside;
+  } else {  // perfect specular
     next_direction = reflect(pt_photon_ray.direction, ffnormal);  // inversed incoming
     //pt_photon_ray_payload.power *= getSpecularBRDF(-pt_photon_ray.direction,  // incoming
     //                                               ffnormal,

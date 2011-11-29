@@ -20,6 +20,7 @@ struct HitRecord {
 struct RTViewingRayPayload {
   optix::float3 attenuation;
   optix::uint depth;
+  bool inside;
 };
 
 struct PhotonRecord {
@@ -36,6 +37,7 @@ struct PTPhotonRayPayload {
   optix::uint num_deposits;
   optix::uint depth;
   optix::uint seed;
+  bool inside;
 };
 
 struct GTShadowRayPayload {
