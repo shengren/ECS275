@@ -8,19 +8,15 @@
 #define HIT_BACKGROUND (1 << 7)
 #define EXCEPTION (1 << 8)
 
-struct HitRecord {
-  optix::uint flags;
-  optix::float3 attenuation;
-  optix::float3 position;
-  optix::float3 normal;
-  optix::float3 outgoing;
-  optix::float3 Rho_d;
-};
-
 struct RTViewingRayPayload {
+  optix::uint2 index;  // target pixel
   optix::float3 attenuation;
   optix::uint depth;
   bool inside;
+};
+
+struct RTShadowRayPayload {
+  bool blocked;
 };
 
 struct PhotonRecord {
@@ -38,10 +34,6 @@ struct PTPhotonRayPayload {
   optix::uint depth;
   optix::uint seed;
   bool inside;
-};
-
-struct GTShadowRayPayload {
-  bool blocked;
 };
 
 struct ParallelogramLight {
