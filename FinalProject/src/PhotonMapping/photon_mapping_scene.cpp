@@ -18,9 +18,9 @@ using namespace optix;
 
 PhotonMappingScene::PhotonMappingScene()
     : context(_context),
-      width(256),
-      height(256),
-      sqrt_num_subpixels(1),  // to-do: disabled
+      width(512),
+      height(512),
+      sqrt_num_subpixels(2),
       frame_number(0),
       pt_width(128),
       pt_height(128),
@@ -34,47 +34,14 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   context->setEntryPointCount(num_programs);  // rt, pt, gt = 3
   context->setStackSize(2000);  // to-do: tuning
 
-  //// enable print in kernels for debugging
-  //context->setPrintEnabled(1);
-  //context->setPrintBufferSize(1024);
+  // enable print in kernels for debugging
+  context->setPrintEnabled(1);
+  context->setPrintBufferSize(4096);
 
   context->setRayTypeCount(num_ray_types);
-  context["rt_viewing_ray_type"]->setUint(rt_viewing_ray_type);
   context["pt_photon_ray_type"]->setUint(pt_photon_ray_type);
-  context["gt_shadow_ray_type"]->setUint(gt_shadow_ray_type);
-
-  // ray tracing
-
-  context["bad_color"]->setFloat(make_float3(0.0f, 1.0f, 0.0f));  // green
-  context["bg_color"]->setFloat(make_float3(0.0f));  // black
-
-  // camera ray generation parameters
-  // camera_data is handled by GLUT for updating camera parameters.
-  // these parameters here are used in kernels and will be set before tracing.
-  context["frame_number"]->setUint(frame_number);  // for progressive rendering
-  context["camera_position"]->setFloat(make_float3(0.0f));
-  context["camera_u"]->setFloat(make_float3(0.0f));
-  context["camera_v"]->setFloat(make_float3(0.0f));
-  context["camera_w"]->setFloat(make_float3(0.0f));
-
-  hit_record_buffer = context->createBuffer(RT_BUFFER_OUTPUT);
-  hit_record_buffer->setFormat(RT_FORMAT_USER);
-  hit_record_buffer->setElementSize(sizeof(HitRecord));
-  hit_record_buffer->setSize(width, height);
-  context["hit_record_buffer"]->set(hit_record_buffer);
-
-  context->setRayGenerationProgram(
-      rt,
-      context->createProgramFromPTXFile(getPTXPath("ray_tracing.cu"),
-                                        "rt_ray_generation"));
-  context->setExceptionProgram(
-      rt,
-      context->createProgramFromPTXFile(getPTXPath("ray_tracing.cu"),
-                                        "rt_exception"));
-  context->setMissProgram(
-      rt_viewing_ray_type,
-      context->createProgramFromPTXFile(getPTXPath("ray_tracing.cu"),
-                                        "rt_viewing_ray_miss"));
+  context["rt_viewing_ray_type"]->setUint(rt_viewing_ray_type);
+  context["rt_shadow_ray_type"]->setUint(rt_shadow_ray_type);
 
   // photon tracing
 
@@ -108,36 +75,50 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   photon_map->setSize(photon_map_size);
   context["photon_map"]->set(photon_map);
 
-  // gathering
+  // ray tracing
 
+  context["bad_color"]->setFloat(make_float3(0.0f, 1.0f, 0.0f));  // green
+  context["bg_color"]->setFloat(make_float3(0.0f));  // black
+  context["sqrt_num_subpixels"]->setUint(sqrt_num_subpixels);
   context["radius2"]->setFloat(radius2);
-  //subpixel_accumulator = context->createBuffer(RT_BUFFER_OUTPUT,
-  //                                             RT_FORMAT_FLOAT3,
-  //                                             width * sqrt_num_subpixels,
-  //                                             height * sqrt_num_subpixels);
-  //context["subpixel_accumulator"]->set(subpixel_accumulator);
+
+  // camera ray generation parameters
+  // camera_data is handled by GLUT for updating camera parameters.
+  // these parameters here are used in kernels and will be set before tracing.
+  context["frame_number"]->setUint(frame_number);  // for progressive rendering
+  context["camera_position"]->setFloat(make_float3(0.0f));
+  context["camera_u"]->setFloat(make_float3(0.0f));
+  context["camera_v"]->setFloat(make_float3(0.0f));
+  context["camera_w"]->setFloat(make_float3(0.0f));
+
+  accumulator = context->createBuffer(RT_BUFFER_OUTPUT,
+                                      RT_FORMAT_FLOAT3,
+                                      width,
+                                      height);
+  context["accumulator"]->set(accumulator);
+
+  context->setRayGenerationProgram(
+      rt,
+      context->createProgramFromPTXFile(getPTXPath("ray_tracing.cu"),
+                                        "rt_ray_generation"));
+  context->setExceptionProgram(
+      rt,
+      context->createProgramFromPTXFile(getPTXPath("ray_tracing.cu"),
+                                        "rt_exception"));
+  context->setMissProgram(
+      rt_viewing_ray_type,
+      context->createProgramFromPTXFile(getPTXPath("ray_tracing.cu"),
+                                        "rt_viewing_ray_miss"));
+
+  // output
+
   context["output_buffer"]->set(
       createOutputBuffer(RT_FORMAT_FLOAT4, width, height));  // to-do: why FLOAT4?
 
   context->setRayGenerationProgram(
-      gt,
-      context->createProgramFromPTXFile(getPTXPath("gathering.cu"),
-                                        "gt_ray_generation"));
-  context->setExceptionProgram(
-      gt,
-      context->createProgramFromPTXFile(getPTXPath("gathering.cu"),
-                                        "gt_exception"));
-
-  // output
-
-  //context->setRayGenerationProgram(
-  //    ot,
-  //    context->createProgramFromPTXFile(getPTXPath("output.cu"),
-  //                                      "ot_ray_generation"));
-
-  //context["sqrt_num_subpixels"]->setUint(sqrt_num_subpixels);
-  //context["output_buffer"]->set(
-  //    createOutputBuffer(RT_FORMAT_FLOAT4, width, height));  // to-do: why FLOAT4?
+      ot,
+      context->createProgramFromPTXFile(getPTXPath("output.cu"),
+                                        "ot_ray_generation"));
 
   // scene
 
@@ -181,11 +162,6 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
   RTsize buffer_width, buffer_height;
   buffer->getSize(buffer_width, buffer_height);
 
-  // ray tracing
-  context->launch(rt,
-                  width,//buffer_width,
-                  height);//buffer_height);
-
   // photon_tracing
   context->launch(pt,
                   pt_width,
@@ -194,15 +170,15 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
   // build photon map
   createPhotonMap();
 
-  // gathering
-  context->launch(gt,
+  // ray tracing
+  context->launch(rt,
                   width,//buffer_width,
                   height);//buffer_height);
 
-  //// output
-  //context->launch(ot,
-  //                width,
-  //                height);
+  // output
+  context->launch(ot,
+                  width,
+                  height);
 }
 
 Buffer PhotonMappingScene::getOutputBuffer() {
@@ -315,17 +291,17 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
   // create materials
   Material material = context->createMaterial();
   material->setClosestHitProgram(
-      rt_viewing_ray_type,
-      context->createProgramFromPTXFile(getPTXPath("ray_tracing.cu"),
-                                        "rt_viewing_ray_closest_hit"));
-  material->setClosestHitProgram(
       pt_photon_ray_type,
       context->createProgramFromPTXFile(getPTXPath("photon_tracing.cu"),
                                         "pt_photon_ray_closest_hit"));
+  material->setClosestHitProgram(
+      rt_viewing_ray_type,
+      context->createProgramFromPTXFile(getPTXPath("ray_tracing.cu"),
+                                        "rt_viewing_ray_closest_hit"));
   material->setAnyHitProgram(
-      gt_shadow_ray_type,
-      context->createProgramFromPTXFile(getPTXPath("gathering.cu"),
-                                        "gt_shadow_ray_any_hit"));
+      rt_shadow_ray_type,
+      context->createProgramFromPTXFile(getPTXPath("ray_tracing.cu"),
+                                        "rt_shadow_ray_any_hit"));
 
   const float3 white = make_float3(0.8f, 0.8f, 0.8f);
   const float3 green = make_float3(0.05f, 0.8f, 0.05f);

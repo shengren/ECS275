@@ -9,9 +9,10 @@
 #define EXCEPTION (1 << 8)
 
 struct RTViewingRayPayload {
-  optix::uint2 index;  // target pixel
+  optix::uint2 index;
   optix::float3 attenuation;
   optix::uint depth;
+  optix::uint seed;
   bool inside;
 };
 

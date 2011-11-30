@@ -50,17 +50,16 @@ class PhotonMappingScene : public SampleScene {
   void createPhotonMap();
 
   enum ProgramEntryPoint {
-    rt,
     pt,
-    gt,
+    rt,
     ot,
     num_programs
   };
 
   enum RayType {
     rt_viewing_ray_type,
+    rt_shadow_ray_type,
     pt_photon_ray_type,
-    gt_shadow_ray_type,
     num_ray_types
   };
 
@@ -76,10 +75,9 @@ class PhotonMappingScene : public SampleScene {
   optix::uint max_depth;
   optix::uint photon_map_size;
   float radius2;
-  optix::Buffer hit_record_buffer;
   optix::Buffer photon_record_buffer;
   optix::Buffer photon_map;
-  //optix::Buffer subpixel_accumulator;  // to-do: disable this anti-aliasing implementation
+  optix::Buffer accumulator;
 };
 
 #endif  // PHOTON_MAPPING_SCENE_H_

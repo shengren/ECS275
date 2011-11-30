@@ -2,59 +2,73 @@
 #include <optixu/optixu_math_namespace.h>
 
 #include "random.h"  // tea<>, rnd()
+#include "kdtree.h"
 #include "structs.h"
 #include "inlines.h"
 
 using namespace optix;
 
 // variables used in multiple programs
-rtBuffer<HitRecord, 2> hit_record_buffer;
+rtBuffer<float3, 2> accumulator;
 rtDeclareVariable(rtObject, top_object, , );
 rtDeclareVariable(uint, rt_viewing_ray_type, , );
-rtDeclareVariable(uint2, launch_index, rtLaunchIndex, );
 rtDeclareVariable(RTViewingRayPayload, rt_viewing_ray_payload, rtPayload, );
 
 // ray tracing, ray generation
 rtDeclareVariable(uint, frame_number, , );
+rtDeclareVariable(uint2, launch_index, rtLaunchIndex, );
 rtDeclareVariable(uint2, launch_dim, rtLaunchDim, );
 rtDeclareVariable(float3, camera_position, , );
 rtDeclareVariable(float3, camera_u, , );
 rtDeclareVariable(float3, camera_v, , );
 rtDeclareVariable(float3, camera_w, , );
+rtDeclareVariable(uint, sqrt_num_subpixels, , );
 
 RT_PROGRAM void rt_ray_generation() {
+  if (frame_number == 1) {  // clear the accumulator
+    accumulator[launch_index] = make_float3(0.0f);
+  }
+
   uint seed = tea<16>(launch_index.y * launch_dim.x + launch_index.x,
                       frame_number);
-  float2 offset = (make_float2(launch_index)
-                  + make_float2(rnd(seed), rnd(seed)))
-                  / make_float2(launch_dim) * 2.0f - 1.0f;
+  float2 base = make_float2(launch_index.x * sqrt_num_subpixels,
+                            launch_index.y * sqrt_num_subpixels);
+  float2 resolution = make_float2(launch_dim.x * sqrt_num_subpixels,
+                                  launch_dim.y * sqrt_num_subpixels);
+  for (int i = 0; i < sqrt_num_subpixels; ++i)
+    for (int j = 0; j < sqrt_num_subpixels; ++j) {
+      float2 offset = (base + make_float2(i + rnd(seed), j + rnd(seed)))
+                      / resolution * 2.0f - 1.0f;
 
-  Ray ray(camera_position,  // origin
-          normalize(offset.x * camera_u + offset.y * camera_v + camera_w),  // direction
-          rt_viewing_ray_type,  // type
-          1e-2f);  // tmin; tmax uses default
+      Ray ray(camera_position,  // origin
+              normalize(offset.x * camera_u + offset.y * camera_v + camera_w),  // direction
+              rt_viewing_ray_type,  // type
+              1e-2f);  // tmin; tmax uses default
 
-  RTViewingRayPayload payload;
-  payload.attenuation = make_float3(1.0f);
-  payload.depth = 1;  // to-do: unused now
-  payload.inside = false;
+      RTViewingRayPayload payload;
+      payload.index = launch_index;  // index to output_buffer
+      payload.attenuation = make_float3(1.0f / (float)(sqrt_num_subpixels * sqrt_num_subpixels));
+      payload.depth = 1;  // to-do: use the same max_depth with photons
+      payload.seed = seed;
+      payload.inside = false;
 
-  rtTrace(top_object, ray, payload);
+      rtTrace(top_object, ray, payload);
+
+      seed = payload.seed;
+    }
 }
 
 // ray tracing, exception
 rtDeclareVariable(float3, bad_color, , );  // green
 
 RT_PROGRAM void rt_exception() {
-  HitRecord& hr = hit_record_buffer[launch_index];
-  hr.flags = EXCEPTION;
-  hr.attenuation = bad_color;
-  hr.position = hr.normal = hr.outgoing = hr.Rho_d = make_float3(0.0f);
-
+  //accumulator[rt_viewing_ray_payload.index] += bad_color;
   rtPrintExceptionDetails();  // to-do: for debugging
 }
 
 // ray tracing, viewing ray, closest hit, default material
+rtBuffer<PhotonRecord, 1> photon_map;  // 1D
+rtBuffer<ParallelogramLight> lights;  // to-do: only have parallelogram lights
 rtDeclareVariable(Ray, rt_viewing_ray, rtCurrentRay, );
 rtDeclareVariable(float, hit_t, rtIntersectionDistance, );
 rtDeclareVariable(float3, shading_normal, attribute shading_normal, );
@@ -64,13 +78,167 @@ rtDeclareVariable(float3, Rho_d, , );
 rtDeclareVariable(float3, Rho_s, , );
 rtDeclareVariable(float, shininess, , );  // unused now
 rtDeclareVariable(float, index_of_refraction, , );  // non-zero indiates a refraction surface, Rho_s is needed as well
+rtDeclareVariable(uint, max_depth, , );
+rtDeclareVariable(uint, rt_shadow_ray_type, , );
+rtDeclareVariable(float, radius2, , );
+
+// to-do: photon_map (rtBuffer) cannot be passed through function parameters
+// hence this function is not included in 'inlines.h'
+// output_buffer is used as a debug buffer in some places
+// modified from gather() in progressivePhotonMap/ppm_gather.cu
+#define MAX_DEPTH 20  // one MILLION photons
+
+__device__ __inline__ void estimateRadiance(const float3 position,
+                                            const float3 normal,
+                                            const float3 Rho_d,
+                                            const float radius2,
+                                            float3& total_flux,
+                                            int& num_photons) {
+  total_flux = make_float3(0.0f, 0.0f, 0.0f);
+  num_photons = 0;  // to-do: unused now
+
+  unsigned int stack[MAX_DEPTH];
+  unsigned int stack_current = 0;
+  unsigned int node = 0;  // 0 is the start
+
+#define push_node(N) stack[stack_current++] = (N)
+#define pop_node()   stack[--stack_current]
+
+  push_node(0);
+
+  int photon_map_size = photon_map.size();  // for debugging
+
+  do {
+    // debugging assertion
+    if (!(node < photon_map_size)) {
+      //accumulator[rt_viewing_ray_payload.index] += make_float3(1.0f, 1.0f, 0.0f);
+      return;
+    }
+
+    const PhotonRecord& pr = photon_map[node];
+
+    if (!(pr.axis & PPM_NULL)) {
+      float3 diff = position - pr.position;
+      float distance2 = dot(diff, diff);
+
+      // accumulate photons
+      if (distance2 <= radius2) {
+        //if (dot(normal, pr.normal) > 1e-2f) {  // on the same plane?
+          total_flux += pr.power * getDiffuseBRDF(Rho_d);  // with BRDF
+          num_photons++;
+        //}
+      }
+
+      // Recurse
+      if (!(pr.axis & PPM_LEAF)) {
+        float d;
+        if (pr.axis & PPM_X) d = diff.x;
+        else if (pr.axis & PPM_Y) d = diff.y;
+        else d = diff.z;  // PPM_Z
+
+        // Calculate the next child selector. 0 is left, 1 is right.
+        int selector = d < 0.0f ? 0 : 1;
+        if (d * d < radius2) {
+          // debugging assertion
+          if (!(stack_current + 1 < MAX_DEPTH)) {
+            //accumulator[rt_viewing_ray_payload.index] += make_float3(1.0f, 1.0f, 0.0f);
+            return;
+          }
+
+          push_node((node << 1) + 2 - selector);
+        }
+
+        // debugging assertion
+        if (!(stack_current + 1 < MAX_DEPTH)) {
+          //accumulator[rt_viewing_ray_payload.index] = make_float3(1.0f, 1.0f, 0.0f);
+          return;
+        }
+
+        node = (node << 1) + 1 + selector;
+      } else {
+        node = pop_node();
+      }
+    } else {
+      node = pop_node();
+    }
+  } while (node);
+}
+
+// to-do: make this function separate in order to make the code clean
+// launch_index, launch_dim, frame_number, lights are local variables
+__device__ __inline__ float3 directIllumination(const float3 position,
+                                                const float3 normal,
+                                                const float3 Rho_d,
+                                                uint& seed) {
+  // uniformly choose one of the area lights
+  int i = (int)((float)lights.size() * rnd(seed));
+  const ParallelogramLight& light = lights[i];  // to-do: only one type of light now
+
+  float3 jitter_scale_v1 = light.v1 / (float)light.sqrt_num_samples;
+  float3 jitter_scale_v2 = light.v2 / (float)light.sqrt_num_samples;
+  int num_samples = light.sqrt_num_samples * light.sqrt_num_samples;
+  float ratio = 0.0;
+  for (int x = 0; x < light.sqrt_num_samples; ++x)
+    for (int y = 0; y < light.sqrt_num_samples; ++y) {
+      float3 sample_on_light = light.corner +
+                               jitter_scale_v1 * (x + rnd(seed)) +
+                               jitter_scale_v2 * (y + rnd(seed));
+      float distance_to_light = length(sample_on_light - position);
+      float3 direction_to_light = normalize(sample_on_light - position);
+
+      if (dot(normal, direction_to_light) > 1e-2f &&
+          dot(light.normal, -direction_to_light) > 1e-2f) {  // trace shadow ray
+        RTShadowRayPayload payload;
+        payload.blocked = false;
+
+        Ray ray(position,
+                direction_to_light,
+                rt_shadow_ray_type,
+                1e-2f,
+                distance_to_light - 1e-2f);
+
+        rtTrace(top_object, ray, payload);  // to-do: hitting the light source doesn't count
+
+        if (!payload.blocked) {
+          float geom = getGeometry(normal,
+                                   light.normal,
+                                   direction_to_light,
+                                   distance_to_light);
+          ratio += geom;
+        }
+      }
+    }
+  ratio *= light.area;  // probability of sampling on this light source
+  ratio *= (float)lights.size();  // probability of sampling among light sources
+  ratio /= (float)num_samples;
+
+  return light.emitted * getDiffuseBRDF(Rho_d) * ratio;
+}
+
+__device__ __inline__ float3 shade(const float3 position,
+                                   const float3 normal,
+                                   const float3 Rho_d,
+                                   uint& seed) {
+  // indirect illumination
+  float3 total_flux = make_float3(0.0f);
+  int num_photons = 0;
+
+  estimateRadiance(position, normal, Rho_d, radius2, total_flux, num_photons);
+
+  float3 indirect = total_flux / (M_PI * radius2);
+
+  // direct illumination
+  float3 direct = directIllumination(position, normal, Rho_d, seed);
+
+  float3 ret = direct + indirect;
+  //float3 ret = direct;
+
+  return ret;
+}
 
 RT_PROGRAM void rt_viewing_ray_closest_hit() {
   if (fmaxf(Le) > 0.0f) {  // light source?
-    HitRecord& hr = hit_record_buffer[launch_index];
-    hr.flags = HIT_LIGHT;
-    hr.attenuation = rt_viewing_ray_payload.attenuation * Le;
-    hr.position = hr.normal = hr.outgoing = hr.Rho_d = make_float3(0.0f);
+    accumulator[rt_viewing_ray_payload.index] += rt_viewing_ray_payload.attenuation * Le;
     return;
   }
 
@@ -80,40 +248,28 @@ RT_PROGRAM void rt_viewing_ray_closest_hit() {
   float3 ffnormal = faceforward(world_shading_normal, -rt_viewing_ray.direction, world_geometric_normal);
 
   if (fmaxf(Rho_d) > 0.0f) {  // diffuse surface?
-    HitRecord& hr = hit_record_buffer[launch_index];
-    hr.flags = HIT;
-    // since we don't know the incoming directions, here we don't apply the
-    // BRDF and cosine term. They should be computed in the gathering pass.
-    // i.e. attenuation only includes all previous hits' computations on
-    // specular surfaces.
-    hr.attenuation = rt_viewing_ray_payload.attenuation;
-    hr.position = hit_point;
-    hr.normal = ffnormal;
-    hr.outgoing = -rt_viewing_ray.direction;
-    hr.Rho_d = Rho_d;
+    accumulator[rt_viewing_ray_payload.index] += rt_viewing_ray_payload.attenuation *
+        shade(hit_point, ffnormal, Rho_d, rt_viewing_ray_payload.seed);
     return;
   }
 
-  rt_viewing_ray_payload.depth++;  // to-do: unused now
+  if (rt_viewing_ray_payload.depth >= max_depth) {  // to-do: sharing the max_depth with photon rays
+    return;
+  }
+
+  rt_viewing_ray_payload.depth++;
+  // to-do: for glass, there should be reflection as well!!!
   float3 next_direction;
   if (index_of_refraction > 0.0) {  // refraction
     float iof = (rt_viewing_ray_payload.inside) ?
                 (1.0f / index_of_refraction) : index_of_refraction;
     refract(next_direction, rt_viewing_ray.direction, ffnormal, iof);
     if (rt_viewing_ray_payload.inside) {
-      //float p = max(hit_t, 1.0f);
-      //rt_viewing_ray_payload.attenuation *= powf(Rho_s.x, p);  // Beer's law, assume Rho_x=y=z
       rt_viewing_ray_payload.attenuation *= Rho_s;
     }
     rt_viewing_ray_payload.inside = !rt_viewing_ray_payload.inside;
   } else {  // specular surface, recursion
     next_direction = reflect(rt_viewing_ray.direction, ffnormal);  // inversed incoming
-    //rt_viewing_ray_payload.attenuation *= getSpecularBRDF(reflection_direction,  // incoming
-    //                                                      ffnormal,  // normal
-    //                                                      -rt_viewing_ray.direction,  // outgoing
-    //                                                      Rho_s,  // not Ks but for computing Ks
-    //                                                      shininess);  // the power factor
-    //rt_viewing_ray_payload.attenuation *= dot(reflection_direction, ffnormal);  // cosine term
     rt_viewing_ray_payload.attenuation *= Rho_s;
   }
   Ray ray(hit_point,
@@ -127,8 +283,13 @@ RT_PROGRAM void rt_viewing_ray_closest_hit() {
 rtDeclareVariable(float3, bg_color, , );  // black
 
 RT_PROGRAM void rt_viewing_ray_miss() {
-  HitRecord& hr = hit_record_buffer[launch_index];
-  hr.flags = HIT_BACKGROUND;
-  hr.attenuation = rt_viewing_ray_payload.attenuation * bg_color;
-  hr.position = hr.normal = hr.outgoing = hr.Rho_d = make_float3(0.0f);
+  accumulator[rt_viewing_ray_payload.index] += rt_viewing_ray_payload.attenuation * bg_color;
+}
+
+// ray tracing, direct illumination, shadow ray, any hit
+rtDeclareVariable(RTShadowRayPayload, rt_shadow_ray_payload, rtPayload, );
+
+RT_PROGRAM void rt_shadow_ray_any_hit() {
+  rt_shadow_ray_payload.blocked = true;
+  rtTerminateRay();  // to-do: what's the difference between this function and 'return'
 }
