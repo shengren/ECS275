@@ -101,12 +101,14 @@ __device__ __inline__ void estimateRadiance(const float3 position,
   num_photons = 0;  // to-do: unused now
   max_radius2 = 0.0f;
 
-  const int max_heap_size = (1 << 6) - 1;
+  /*
+  const int max_heap_size = (1 << 7) - 1;
   Neighbor max_heap[max_heap_size];
   for (int i = 0; i < max_heap_size; ++i) {
     max_heap[i].dist2 = FLT_MAX;
     max_heap[i].idx = -1;
   }
+  */
 
   unsigned int stack[MAX_DEPTH];
   unsigned int stack_current = 0;
@@ -134,11 +136,15 @@ __device__ __inline__ void estimateRadiance(const float3 position,
 
       // accumulate photons
       if (distance2 <= radius2) {
-        //if (dot(normal, pr.normal) > 1e-2f) {  // on the same plane?
-        //  total_flux += pr.power * getDiffuseBRDF(Rho_d);  // with BRDF
-        //  num_photons++;
-        //}
-        if (distance2 < max_heap[0].dist2) {  // heap insertion
+        if (dot(normal, pr.normal) > 1e-3f) {  // on the same plane?
+          total_flux += pr.power * getDiffuseBRDF(Rho_d);  // with BRDF
+          num_photons++;
+          if (distance2 > max_radius2)
+            max_radius2 = distance2;
+        }
+        /*
+        if (dot(normal, pr.normal) > 1e-2f &&
+            distance2 < max_heap[0].dist2) {  // heap insertion
           max_heap[0].dist2 = distance2;
           max_heap[0].idx = node;
           int p = 0;
@@ -148,6 +154,7 @@ __device__ __inline__ void estimateRadiance(const float3 position,
                 Neighbor t = max_heap[p * 2 + 1];
                 max_heap[p * 2 + 1] = max_heap[p];
                 max_heap[p] = t;
+                p = p * 2 + 1;
               } else {
                 break;
               }
@@ -156,12 +163,14 @@ __device__ __inline__ void estimateRadiance(const float3 position,
                 Neighbor t = max_heap[p * 2 + 2];
                 max_heap[p * 2 + 2] = max_heap[p];
                 max_heap[p] = t;
+                p = p * 2 + 2;
               } else {
                 break;
               }
             }
-          }
+          }  // while
         }
+        */
       }
 
       // Recurse
@@ -198,15 +207,16 @@ __device__ __inline__ void estimateRadiance(const float3 position,
     }
   } while (node);
 
-  max_radius2 = max_heap[0].dist2;
+  /*
   for (int i = 0; i < max_heap_size; ++i) {
     if (max_heap[i].idx != -1) {
       total_flux += photon_map[max_heap[i].idx].power * getDiffuseBRDF(Rho_d);  // with BRDF
       num_photons++;
+      if (max_heap[i].dist2 > max_radius2)
+        max_radius2 = max_heap[i].dist2;
     }
   }
-
-  //rtPrintf("num_photons = %d within max_radius2 %f\n", num_photons, max_radius2);
+  */
 }
 
 // to-do: make this function separate in order to make the code clean

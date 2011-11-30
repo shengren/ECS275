@@ -47,7 +47,7 @@ int main(int argc, char** argv) {
     //scene.setDisplayResolution(width, height);
 
     //GLUTDisplay::setUseSRGB(true);  // to-do: standard RGB?
-    GLUTDisplay::setProgressiveDrawingTimeout(-1.0f);  // to-do: ususally it is set by input. Internally, it is set to 10s by default.
+    GLUTDisplay::setProgressiveDrawingTimeout(600.0f);  // to-do: ususally it is set by input. Internally, it is set to 10s by default.
     GLUTDisplay::run("PhotonMappingScene", &scene, GLUTDisplay::CDProgressive);
   } catch (optix::Exception &e) {
     sutilReportError(e.getErrorString().c_str());
