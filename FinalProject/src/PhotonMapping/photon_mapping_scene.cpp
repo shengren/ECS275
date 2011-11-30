@@ -20,10 +20,10 @@ PhotonMappingScene::PhotonMappingScene()
     : context(_context),
       width(512),
       height(512),
-      sqrt_num_subpixels(2),
+      sqrt_num_subpixels(1),
       frame_number(0),
-      pt_width(128),
-      pt_height(128),
+      pt_width(1024),
+      pt_height(1024),
       max_num_deposits(2),
       min_depth(2),  // start recording from 2 bounces is the regular case, 1 is for test
       max_depth(5),
@@ -32,7 +32,7 @@ PhotonMappingScene::PhotonMappingScene()
 
 void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   context->setEntryPointCount(num_programs);  // rt, pt, gt = 3
-  context->setStackSize(2000);  // to-do: tuning
+  context->setStackSize(3000);  // to-do: tuning
 
   // enable print in kernels for debugging
   context->setPrintEnabled(1);
@@ -127,13 +127,13 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   context->validate();
   context->compile();
 
-  //// photon_tracing
-  //context->launch(pt,
-  //                pt_width,
-  //                pt_height);
+  // photon_tracing
+  context->launch(pt,
+                  pt_width,
+                  pt_height);
 
-  //// build photon map
-  //createPhotonMap();
+  // build photon map
+  createPhotonMap();
 }
 
 void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
@@ -161,14 +161,6 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
   Buffer buffer = getOutputBuffer();
   RTsize buffer_width, buffer_height;
   buffer->getSize(buffer_width, buffer_height);
-
-  // photon_tracing
-  context->launch(pt,
-                  pt_width,
-                  pt_height);
-
-  // build photon map
-  createPhotonMap();
 
   // ray tracing
   context->launch(rt,
@@ -432,14 +424,13 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                              material));
   gis.back()["Rho_s"]->setFloat(make_float3(0.99f));
   // sphere glass
-  //gis.push_back(createSphere(make_float3(170.0f, 80.0f, 169.0f),
   gis.push_back(createSphere(make_float3(130.0f, 80.0f, 250.0f),
                              80.0f,
                              sphere_intersection,
                              sphere_bounding_box,
                              material));
   gis.back()["Rho_s"]->setFloat(make_float3(0.99f));
-  gis.back()["index_of_refraction"]->setFloat(1.8f);
+  gis.back()["index_of_refraction"]->setFloat(1.4f);
 
   // Parallelogram light, appearing in both the light buffer and geometry objects
   // make sure these two are identical in geometry, e.g. having the same normal vector
@@ -449,7 +440,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Le"]->setFloat(make_float3(1.0f));  // to-do: power and/or radiance for light source
+  gis.back()["Le"]->setFloat(make_float3(50.0f));  // to-do: power and/or radiance for light source
 
   GeometryGroup geometry_group = context->createGeometryGroup(gis.begin(), gis.end());
   geometry_group->setAcceleration(context->createAcceleration("Bvh", "Bvh"));

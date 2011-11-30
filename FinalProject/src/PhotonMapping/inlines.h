@@ -68,10 +68,10 @@ __device__ __inline__ void generatePhoton(const ParallelogramLight& light,
   sample_power = light.power;
 }
 
-__device__ __inline__ float getGeometry(optix::float3 ns,
-                                        optix::float3 nl,
-                                        optix::float3 dir,
-                                        float dist) {
+__device__ __inline__ float getGeometry(const optix::float3 ns,
+                                        const optix::float3 nl,
+                                        const optix::float3 dir,
+                                        const float dist) {
   return optix::dot(ns, dir) * optix::dot(nl, -dir) / (dist * dist);
 }
 

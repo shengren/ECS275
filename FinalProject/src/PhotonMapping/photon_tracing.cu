@@ -105,40 +105,64 @@ RT_PROGRAM void pt_photon_ray_closest_hit() {
     return;
   }
 
-  float3 next_direction;
-  // to-do: the material is either pure diffuse or pure specular, no third option now
-  if (fmaxf(Rho_d) > 0.0f) {  // diffuse
-    next_direction = sampleUnitHemisphereCosine(pt_photon_ray_payload.seed,
-                                                ffnormal);
-    pt_photon_ray_payload.power *= getDiffuseBRDF(Rho_d);
-  } else if (index_of_refraction > 0.0) {  // refraction
-    float iof = (pt_photon_ray_payload.inside) ?
-                (1.0f / index_of_refraction) : index_of_refraction;
-    refract(next_direction, pt_photon_ray.direction, ffnormal, iof);
-    if (pt_photon_ray_payload.inside) {
-      //float p = max(hit_t, 1.0f);
-      //pt_photon_ray_payload.power *= powf(Rho_s.x, p);  // Beer's law, assume Rho_x=y=z
-      pt_photon_ray_payload.power *= Rho_s;
-    }
-    pt_photon_ray_payload.inside = !pt_photon_ray_payload.inside;
-  } else {  // perfect specular
-    next_direction = reflect(pt_photon_ray.direction, ffnormal);  // inversed incoming
-    //pt_photon_ray_payload.power *= getSpecularBRDF(-pt_photon_ray.direction,  // incoming
-    //                                               ffnormal,
-    //                                               next_direction,  // outgoing
-    //                                               Rho_s,
-    //                                               shininess);
-    pt_photon_ray_payload.power *= Rho_s;
-  }
-  // to-do: confirm that there is no cosine term during photon transport
-  //pt_photon_ray_payload.power *= dot(-pt_photon_ray.direction, ffnormal);  // cosine term
   pt_photon_ray_payload.depth++;
 
+  if (fmaxf(Rho_d) > 0.0f) {  // diffuse
+    float3 next_direction = sampleUnitHemisphereCosine(pt_photon_ray_payload.seed,
+                                                       ffnormal);
+    pt_photon_ray_payload.power *= getDiffuseBRDF(Rho_d);
+    Ray ray(hit_point,
+            next_direction,
+            pt_photon_ray_type,
+            1e-2f);
+    rtTrace(top_object, ray, pt_photon_ray_payload);
+    return;
+  }
+
+  // specular
+
+  float3 reflection_direction = reflect(pt_photon_ray.direction, ffnormal);  // inversed incoming
+  float reflection_ratio = 1.0f;
+  float3 refraction_direction;
+  float refraction_ratio = 0.0f;
+  bool has_refraction = false;
+  PTPhotonRayPayload refraction_payload = pt_photon_ray_payload;
+  if (index_of_refraction > 0.0f) {
+    float iof = (pt_photon_ray_payload.inside) ?
+                (1.0f / index_of_refraction) : index_of_refraction;
+    refract(refraction_direction, pt_photon_ray.direction, ffnormal, iof);
+    float cos_i = dot(-pt_photon_ray.direction, ffnormal);
+    float cos2_t = 1.0f - ((1.0f - (cos_i * cos_i)) / (iof * iof));
+    if (cos2_t >= 0) {
+      has_refraction = true;
+      float a = index_of_refraction - 1.0f;
+      float b = index_of_refraction + 1.0f;
+      float R0 = a * a / (b * b);
+      float c = 1.0f - (pt_photon_ray_payload.inside ?
+                        dot(refraction_direction, -ffnormal) :
+                        cos_i);
+      reflection_ratio = R0 + (1.0f - R0) * c * c * c * c * c;
+      refraction_ratio = 1.0f - reflection_ratio;
+    }
+  }
+
+  // refraction
+  if (has_refraction) {
+    refraction_payload.power *= Rho_s * refraction_ratio;
+    refraction_payload.inside = !refraction_payload.inside;
+    Ray ray(hit_point,
+            refraction_direction,
+            pt_photon_ray_type,
+            1e-2f);
+    rtTrace(top_object, ray, refraction_payload);
+  }
+
+  // reflection
+  pt_photon_ray_payload.power *= Rho_s * reflection_ratio;  // perfect reflection
   Ray ray(hit_point,
-          next_direction,
+          reflection_direction,
           pt_photon_ray_type,
           1e-2f);
-
   rtTrace(top_object, ray, pt_photon_ray_payload);
 }
 

@@ -36,7 +36,7 @@ RT_PROGRAM void rt_ray_generation() {
   float2 resolution = make_float2(launch_dim.x * sqrt_num_subpixels,
                                   launch_dim.y * sqrt_num_subpixels);
   for (int i = 0; i < sqrt_num_subpixels; ++i)
-    for (int j = 0; j < sqrt_num_subpixels; ++j) {
+    for (int j = 0; j < sqrt_num_subpixels; ++j) {  // to-do: this anti-aliasing needs a larger stack size
       float2 offset = (base + make_float2(i + rnd(seed), j + rnd(seed)))
                       / resolution * 2.0f - 1.0f;
 
@@ -62,7 +62,7 @@ RT_PROGRAM void rt_ray_generation() {
 rtDeclareVariable(float3, bad_color, , );  // green
 
 RT_PROGRAM void rt_exception() {
-  //accumulator[rt_viewing_ray_payload.index] += bad_color;
+  accumulator[rt_viewing_ray_payload.index] += bad_color;
   rtPrintExceptionDetails();  // to-do: for debugging
 }
 
@@ -231,6 +231,7 @@ __device__ __inline__ float3 shade(const float3 position,
   float3 direct = directIllumination(position, normal, Rho_d, seed);
 
   float3 ret = direct + indirect;
+  //float3 ret = indirect;
   //float3 ret = direct;
 
   return ret;
@@ -253,27 +254,51 @@ RT_PROGRAM void rt_viewing_ray_closest_hit() {
     return;
   }
 
-  if (rt_viewing_ray_payload.depth >= max_depth) {  // to-do: sharing the max_depth with photon rays
-    return;
-  }
+  if (rt_viewing_ray_payload.depth >= max_depth)  // to-do: sharing the max_depth with photon rays
+    return;  // stop recursion
 
   rt_viewing_ray_payload.depth++;
-  // to-do: for glass, there should be reflection as well!!!
-  float3 next_direction;
-  if (index_of_refraction > 0.0) {  // refraction
+
+  float3 reflection_direction = reflect(rt_viewing_ray.direction, ffnormal);  // inversed incoming
+  float reflection_ratio = 1.0f;
+  float3 refraction_direction;
+  float refraction_ratio = 0.0f;
+  bool has_refraction = false;
+  RTViewingRayPayload refraction_payload = rt_viewing_ray_payload;
+  if (index_of_refraction > 0.0f) {
     float iof = (rt_viewing_ray_payload.inside) ?
                 (1.0f / index_of_refraction) : index_of_refraction;
-    refract(next_direction, rt_viewing_ray.direction, ffnormal, iof);
-    if (rt_viewing_ray_payload.inside) {
-      rt_viewing_ray_payload.attenuation *= Rho_s;
+    refract(refraction_direction, rt_viewing_ray.direction, ffnormal, iof);
+    float cos_i = dot(-rt_viewing_ray.direction, ffnormal);
+    float cos2_t = 1.0f - ((1.0f - (cos_i * cos_i)) / (iof * iof));
+    if (cos2_t >= 0) {
+      has_refraction = true;
+      float a = index_of_refraction - 1.0f;
+      float b = index_of_refraction + 1.0f;
+      float R0 = a * a / (b * b);
+      float c = 1.0f - (rt_viewing_ray_payload.inside ?
+                        dot(refraction_direction, -ffnormal) :
+                        cos_i);
+      reflection_ratio = R0 + (1.0f - R0) * c * c * c * c * c;
+      refraction_ratio = 1.0f - reflection_ratio;
     }
-    rt_viewing_ray_payload.inside = !rt_viewing_ray_payload.inside;
-  } else {  // specular surface, recursion
-    next_direction = reflect(rt_viewing_ray.direction, ffnormal);  // inversed incoming
-    rt_viewing_ray_payload.attenuation *= Rho_s;
   }
+
+  // refraction
+  if (has_refraction) {
+    refraction_payload.attenuation *= Rho_s * refraction_ratio;
+    refraction_payload.inside = !refraction_payload.inside;
+    Ray ray(hit_point,
+            refraction_direction,
+            rt_viewing_ray_type,
+            1e-2f);
+    rtTrace(top_object, ray, refraction_payload);
+  }
+
+  // reflection
+  rt_viewing_ray_payload.attenuation *= Rho_s * reflection_ratio;  // perfect reflection
   Ray ray(hit_point,
-          next_direction,
+          reflection_direction,
           rt_viewing_ray_type,
           1e-2f);
   rtTrace(top_object, ray, rt_viewing_ray_payload);
