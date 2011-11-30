@@ -48,4 +48,9 @@ struct ParallelogramLight {
   optix::float3 emitted;  // for direct illumination, to-do: Le has different values
 };
 
+struct Neighbor {
+  float dist2;
+  int idx;
+};
+
 #endif  // STRUCTS_H_

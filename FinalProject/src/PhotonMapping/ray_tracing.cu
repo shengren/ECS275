@@ -1,3 +1,5 @@
+#include <cfloat>
+
 #include <optix.h>
 #include <optixu/optixu_math_namespace.h>
 
@@ -59,7 +61,7 @@ RT_PROGRAM void rt_ray_generation() {
 }
 
 // ray tracing, exception
-rtDeclareVariable(float3, bad_color, , );  // green
+rtDeclareVariable(float3, bad_color, , );  // blue
 
 RT_PROGRAM void rt_exception() {
   accumulator[rt_viewing_ray_payload.index] += bad_color;
@@ -93,9 +95,18 @@ __device__ __inline__ void estimateRadiance(const float3 position,
                                             const float3 Rho_d,
                                             const float radius2,
                                             float3& total_flux,
-                                            int& num_photons) {
+                                            int& num_photons,
+                                            float& max_radius2) {
   total_flux = make_float3(0.0f, 0.0f, 0.0f);
   num_photons = 0;  // to-do: unused now
+  max_radius2 = 0.0f;
+
+  const int max_heap_size = (1 << 6) - 1;
+  Neighbor max_heap[max_heap_size];
+  for (int i = 0; i < max_heap_size; ++i) {
+    max_heap[i].dist2 = FLT_MAX;
+    max_heap[i].idx = -1;
+  }
 
   unsigned int stack[MAX_DEPTH];
   unsigned int stack_current = 0;
@@ -124,9 +135,33 @@ __device__ __inline__ void estimateRadiance(const float3 position,
       // accumulate photons
       if (distance2 <= radius2) {
         //if (dot(normal, pr.normal) > 1e-2f) {  // on the same plane?
-          total_flux += pr.power * getDiffuseBRDF(Rho_d);  // with BRDF
-          num_photons++;
+        //  total_flux += pr.power * getDiffuseBRDF(Rho_d);  // with BRDF
+        //  num_photons++;
         //}
+        if (distance2 < max_heap[0].dist2) {  // heap insertion
+          max_heap[0].dist2 = distance2;
+          max_heap[0].idx = node;
+          int p = 0;
+          while (p * 2 + 2 < max_heap_size) {
+            if (max_heap[p * 2 + 1].dist2 > max_heap[p * 2 + 2].dist2) {
+              if (max_heap[p * 2 + 1].dist2 > max_heap[p].dist2) {
+                Neighbor t = max_heap[p * 2 + 1];
+                max_heap[p * 2 + 1] = max_heap[p];
+                max_heap[p] = t;
+              } else {
+                break;
+              }
+            } else {
+              if (max_heap[p * 2 + 2].dist2 > max_heap[p].dist2) {
+                Neighbor t = max_heap[p * 2 + 2];
+                max_heap[p * 2 + 2] = max_heap[p];
+                max_heap[p] = t;
+              } else {
+                break;
+              }
+            }
+          }
+        }
       }
 
       // Recurse
@@ -162,6 +197,16 @@ __device__ __inline__ void estimateRadiance(const float3 position,
       node = pop_node();
     }
   } while (node);
+
+  max_radius2 = max_heap[0].dist2;
+  for (int i = 0; i < max_heap_size; ++i) {
+    if (max_heap[i].idx != -1) {
+      total_flux += photon_map[max_heap[i].idx].power * getDiffuseBRDF(Rho_d);  // with BRDF
+      num_photons++;
+    }
+  }
+
+  //rtPrintf("num_photons = %d within max_radius2 %f\n", num_photons, max_radius2);
 }
 
 // to-do: make this function separate in order to make the code clean
@@ -222,10 +267,11 @@ __device__ __inline__ float3 shade(const float3 position,
   // indirect illumination
   float3 total_flux = make_float3(0.0f);
   int num_photons = 0;
+  float max_radius2 = 0.0f;
 
-  estimateRadiance(position, normal, Rho_d, radius2, total_flux, num_photons);
+  estimateRadiance(position, normal, Rho_d, radius2, total_flux, num_photons, max_radius2);
 
-  float3 indirect = total_flux / (M_PI * radius2);
+  float3 indirect = total_flux / (M_PI * max_radius2);
 
   // direct illumination
   float3 direct = directIllumination(position, normal, Rho_d, seed);

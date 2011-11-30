@@ -18,15 +18,15 @@ using namespace optix;
 
 PhotonMappingScene::PhotonMappingScene()
     : context(_context),
-      width(512),
-      height(512),
+      width(128),
+      height(128),
       sqrt_num_subpixels(1),
       frame_number(0),
-      pt_width(1024),
-      pt_height(1024),
-      max_num_deposits(2),
+      pt_width(128),
+      pt_height(128),
+      max_num_deposits(1),
       min_depth(2),  // start recording from 2 bounces is the regular case, 1 is for test
-      max_depth(5),
+      max_depth(3),
       radius2(400.0f)
 {}
 
@@ -77,7 +77,7 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
 
   // ray tracing
 
-  context["bad_color"]->setFloat(make_float3(0.0f, 1.0f, 0.0f));  // green
+  context["bad_color"]->setFloat(make_float3(0.0f, 0.0f, 1.0f));  // blue
   context["bg_color"]->setFloat(make_float3(0.0f));  // black
   context["sqrt_num_subpixels"]->setUint(sqrt_num_subpixels);
   context["radius2"]->setFloat(radius2);
@@ -146,8 +146,8 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
   // render only one frame, but, actually, 'trace' is called twice.
   // on Mac, can't see output if calling 'trace' only once.
   // guess, it is related to camera information updates.
-  //if (frame_number > 0)
-  //  return;
+  if (frame_number > 0)
+    return;
 
   context["frame_number"]->setUint(++frame_number);
 
