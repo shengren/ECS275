@@ -11,7 +11,7 @@
 using namespace optix;
 
 // variables used in multiple programs
-rtBuffer<float3, 2> accumulator;
+rtBuffer<float4, 2> output_buffer;
 rtDeclareVariable(rtObject, top_object, , );
 rtDeclareVariable(uint, rt_viewing_ray_type, , );
 rtDeclareVariable(RTViewingRayPayload, rt_viewing_ray_payload, rtPayload, );
@@ -27,16 +27,13 @@ rtDeclareVariable(float3, camera_w, , );
 rtDeclareVariable(uint, sqrt_num_subpixels, , );
 
 RT_PROGRAM void rt_ray_generation() {
-  if (frame_number == 1) {  // clear the accumulator
-    accumulator[launch_index] = make_float3(0.0f);
-  }
-
   uint seed = tea<16>(launch_index.y * launch_dim.x + launch_index.x,
                       frame_number);
   float2 base = make_float2(launch_index.x * sqrt_num_subpixels,
                             launch_index.y * sqrt_num_subpixels);
   float2 resolution = make_float2(launch_dim.x * sqrt_num_subpixels,
                                   launch_dim.y * sqrt_num_subpixels);
+  float3 result = make_float3(0.0f);
   for (int i = 0; i < sqrt_num_subpixels; ++i)
     for (int j = 0; j < sqrt_num_subpixels; ++j) {  // to-do: this anti-aliasing needs a larger stack size
       float2 offset = (base + make_float2(i + rnd(seed), j + rnd(seed)))
@@ -49,22 +46,34 @@ RT_PROGRAM void rt_ray_generation() {
 
       RTViewingRayPayload payload;
       payload.index = launch_index;  // index to output_buffer
-      payload.attenuation = make_float3(1.0f / (float)(sqrt_num_subpixels * sqrt_num_subpixels));
+      payload.attenuation = make_float3(1.0f);
+      payload.radiance = make_float3(0.0f);
       payload.depth = 1;  // to-do: use the same max_depth with photons
       payload.seed = seed;
       payload.inside = false;
 
       rtTrace(top_object, ray, payload);
 
+      result += payload.radiance;
       seed = payload.seed;
     }
+  result *= 1.0f / (float)(sqrt_num_subpixels * sqrt_num_subpixels);
+
+  if (frame_number == 1) {
+    output_buffer[launch_index] = make_float4(result, 0.0f);
+  } else {
+    float a = 1.0f / (float)frame_number;
+    float b = ((float)frame_number - 1.0f) * a;
+    float3 old_color = make_float3(output_buffer[launch_index]);
+    output_buffer[launch_index] = make_float4(a * result + b * old_color, 0.0f);
+  }
 }
 
 // ray tracing, exception
 rtDeclareVariable(float3, bad_color, , );  // blue
 
 RT_PROGRAM void rt_exception() {
-  accumulator[rt_viewing_ray_payload.index] += bad_color;
+  output_buffer[rt_viewing_ray_payload.index] = make_float4(bad_color, 0.0f);
   rtPrintExceptionDetails();  // to-do: for debugging
 }
 
@@ -88,7 +97,7 @@ rtDeclareVariable(float, radius2, , );
 // hence this function is not included in 'inlines.h'
 // output_buffer is used as a debug buffer in some places
 // modified from gather() in progressivePhotonMap/ppm_gather.cu
-#define MAX_DEPTH 20  // one MILLION photons
+#define MAX_DEPTH 24  // to-do: 2^24-1 is the maximal size of the photon map
 
 __device__ __inline__ void estimateRadiance(const float3 position,
                                             const float3 normal,
@@ -124,7 +133,8 @@ __device__ __inline__ void estimateRadiance(const float3 position,
   do {
     // debugging assertion
     if (!(node < photon_map_size)) {
-      //accumulator[rt_viewing_ray_payload.index] += make_float3(1.0f, 1.0f, 0.0f);
+      //output_buffer[rt_viewing_ray_payload.index] = make_float4(1.0f, 1.0f, 0.0f, 0.0f);
+      rtPrintf("overflow case 1\n");
       return;
     }
 
@@ -185,7 +195,8 @@ __device__ __inline__ void estimateRadiance(const float3 position,
         if (d * d < radius2) {
           // debugging assertion
           if (!(stack_current + 1 < MAX_DEPTH)) {
-            //accumulator[rt_viewing_ray_payload.index] += make_float3(1.0f, 1.0f, 0.0f);
+            //output_buffer[rt_viewing_ray_payload.index] = make_float4(1.0f, 1.0f, 0.0f, 0.0f);
+            rtPrintf("overflow case 2\n");
             return;
           }
 
@@ -194,7 +205,8 @@ __device__ __inline__ void estimateRadiance(const float3 position,
 
         // debugging assertion
         if (!(stack_current + 1 < MAX_DEPTH)) {
-          //accumulator[rt_viewing_ray_payload.index] = make_float3(1.0f, 1.0f, 0.0f);
+          //output_buffer[rt_viewing_ray_payload.index] = make_float4(1.0f, 1.0f, 0.0f, 0.0f);
+          rtPrintf("overflow case 3\n");
           return;
         }
 
@@ -295,7 +307,7 @@ __device__ __inline__ float3 shade(const float3 position,
 
 RT_PROGRAM void rt_viewing_ray_closest_hit() {
   if (fmaxf(Le) > 0.0f) {  // light source?
-    accumulator[rt_viewing_ray_payload.index] += rt_viewing_ray_payload.attenuation * Le;
+    rt_viewing_ray_payload.radiance = rt_viewing_ray_payload.attenuation * Le;
     return;
   }
 
@@ -305,7 +317,7 @@ RT_PROGRAM void rt_viewing_ray_closest_hit() {
   float3 ffnormal = faceforward(world_shading_normal, -rt_viewing_ray.direction, world_geometric_normal);
 
   if (fmaxf(Rho_d) > 0.0f) {  // diffuse surface?
-    accumulator[rt_viewing_ray_payload.index] += rt_viewing_ray_payload.attenuation *
+    rt_viewing_ray_payload.radiance = rt_viewing_ray_payload.attenuation *
         shade(hit_point, ffnormal, Rho_d, rt_viewing_ray_payload.seed);
     return;
   }
@@ -316,11 +328,12 @@ RT_PROGRAM void rt_viewing_ray_closest_hit() {
   rt_viewing_ray_payload.depth++;
 
   float3 reflection_direction = reflect(rt_viewing_ray.direction, ffnormal);  // inversed incoming
-  float reflection_ratio = 1.0f;
   float3 refraction_direction;
+  float reflection_ratio = 1.0f;
   float refraction_ratio = 0.0f;
-  bool has_refraction = false;
+  RTViewingRayPayload reflection_payload = rt_viewing_ray_payload;
   RTViewingRayPayload refraction_payload = rt_viewing_ray_payload;
+  bool has_refraction = false;
   if (index_of_refraction > 0.0f) {
     float iof = (rt_viewing_ray_payload.inside) ?
                 (1.0f / index_of_refraction) : index_of_refraction;
@@ -349,22 +362,24 @@ RT_PROGRAM void rt_viewing_ray_closest_hit() {
             rt_viewing_ray_type,
             1e-2f);
     rtTrace(top_object, ray, refraction_payload);
+    rt_viewing_ray_payload.radiance += refraction_payload.radiance;  // recursively return
   }
 
   // reflection
-  rt_viewing_ray_payload.attenuation *= Rho_s * reflection_ratio;  // perfect reflection
+  reflection_payload.attenuation *= Rho_s * reflection_ratio;  // perfect reflection
   Ray ray(hit_point,
           reflection_direction,
           rt_viewing_ray_type,
           1e-2f);
-  rtTrace(top_object, ray, rt_viewing_ray_payload);
+  rtTrace(top_object, ray, reflection_payload);
+  rt_viewing_ray_payload.radiance += reflection_payload.radiance;  // recursively return
 }
 
 // ray tracing, viewing ray, miss, default material
 rtDeclareVariable(float3, bg_color, , );  // black
 
 RT_PROGRAM void rt_viewing_ray_miss() {
-  accumulator[rt_viewing_ray_payload.index] += rt_viewing_ray_payload.attenuation * bg_color;
+  rt_viewing_ray_payload.radiance = rt_viewing_ray_payload.attenuation * bg_color;
 }
 
 // ray tracing, direct illumination, shadow ray, any hit

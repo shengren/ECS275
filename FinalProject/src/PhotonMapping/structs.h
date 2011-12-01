@@ -11,6 +11,7 @@
 struct RTViewingRayPayload {
   optix::uint2 index;
   optix::float3 attenuation;
+  optix::float3 radiance;
   optix::uint depth;
   optix::uint seed;
   bool inside;

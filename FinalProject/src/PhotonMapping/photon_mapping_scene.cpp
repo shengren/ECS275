@@ -23,8 +23,8 @@ PhotonMappingScene::PhotonMappingScene()
       height(512),
       sqrt_num_subpixels(2),
       frame_number(0),
-      pt_width(1000),
-      pt_height(1000),
+      pt_width(1300),
+      pt_height(1300),
       max_num_deposits(2),
       min_depth(2),  // start recording from 2 bounces is the regular case, 1 is for test
       max_depth(5),
@@ -33,7 +33,7 @@ PhotonMappingScene::PhotonMappingScene()
 
 void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   context->setEntryPointCount(num_programs);  // rt, pt, gt = 3
-  context->setStackSize(7000);  // to-do: tuning
+  context->setStackSize(5000);  // to-do: tuning
 
   // enable print in kernels for debugging
   context->setPrintEnabled(1);
@@ -91,11 +91,8 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   context["camera_v"]->setFloat(make_float3(0.0f));
   context["camera_w"]->setFloat(make_float3(0.0f));
 
-  accumulator = context->createBuffer(RT_BUFFER_OUTPUT,
-                                      RT_FORMAT_FLOAT3,
-                                      width,
-                                      height);
-  context["accumulator"]->set(accumulator);
+  context["output_buffer"]->set(
+      createOutputBuffer(RT_FORMAT_FLOAT4, width, height));  // to-do: why FLOAT4?
 
   context->setRayGenerationProgram(
       rt,
@@ -109,16 +106,6 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
       rt_viewing_ray_type,
       context->createProgramFromPTXFile(getPTXPath("ray_tracing.cu"),
                                         "rt_viewing_ray_miss"));
-
-  // output
-
-  context["output_buffer"]->set(
-      createOutputBuffer(RT_FORMAT_FLOAT4, width, height));  // to-do: why FLOAT4?
-
-  context->setRayGenerationProgram(
-      ot,
-      context->createProgramFromPTXFile(getPTXPath("output.cu"),
-                                        "ot_ray_generation"));
 
   // scene
 
@@ -166,11 +153,6 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
   context->launch(rt,
                   width,//buffer_width,
                   height);//buffer_height);
-
-  // output
-  context->launch(ot,
-                  width,
-                  height);
 }
 
 Buffer PhotonMappingScene::getOutputBuffer() {
@@ -471,7 +453,7 @@ void PhotonMappingScene::createPhotonMap() {
     }
   }
 
-  printf("valid_photons = %d / %d\n", valid_photons, photons_size);
+  printf("valid_photons = %d / %d, photon_map_size = %d\n", valid_photons, photons_size, photon_map_size);
 
   // Make sure we arent at most 1 less than power of 2
   valid_photons = valid_photons >= photon_map_size ? photon_map_size : valid_photons;

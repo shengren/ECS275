@@ -2,6 +2,7 @@
 #define KDTREE_H_
 
 #include <iostream>
+#include <cstdio>
 
 #include <optixu/optixu_math_namespace.h>
 

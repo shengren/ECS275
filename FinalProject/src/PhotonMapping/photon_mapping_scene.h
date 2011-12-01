@@ -52,7 +52,6 @@ class PhotonMappingScene : public SampleScene {
   enum ProgramEntryPoint {
     pt,
     rt,
-    ot,
     num_programs
   };
 
@@ -77,7 +76,6 @@ class PhotonMappingScene : public SampleScene {
   float radius2;
   optix::Buffer photon_record_buffer;
   optix::Buffer photon_map;
-  optix::Buffer accumulator;
 };
 
 #endif  // PHOTON_MAPPING_SCENE_H_
