@@ -68,6 +68,7 @@ __device__ __inline__ void generatePhoton(const ParallelogramLight& light,
   sample_power = light.power;
 }
 
+/*
 __device__ __inline__ void generateCausticPhoton(const Sphere& sphere,
                                                  const ParallelogramLight& light,
                                                  optix::uint& seed,
@@ -89,6 +90,7 @@ __device__ __inline__ void generateCausticPhoton(const Sphere& sphere,
 
   sample_direction = optix::normalize(sp - sample_position);
 }
+*/
 
 __device__ __inline__ float getGeometry(const optix::float3 ns,
                                         const optix::float3 nl,

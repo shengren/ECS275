@@ -238,9 +238,9 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
   light.v2 = make_float3(-130.0f, 0.0, 0.0f);
   light.normal = normalize(cross(light.v1, light.v2));
   light.area = length(cross(light.v1, light.v2));
-  light.power = make_float3(2e7f);
+  light.power = make_float3(4e7f);
   light.sqrt_num_samples = 2;
-  light.emitted = make_float3(50.0f);
+  light.emitted = make_float3(30.0f);
   // add this light to the engine
   Buffer light_buffer = context->createBuffer(RT_BUFFER_INPUT);
   light_buffer->setFormat(RT_FORMAT_USER);
@@ -440,7 +440,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                              sphere_bounding_box,
                              material));
   gis.back()["Rho_s"]->setFloat(make_float3(0.9f));
-  gis.back()["index_of_refraction"]->setFloat(1.4f);
+  gis.back()["index_of_refraction"]->setFloat(1.55f);
 
   // Parallelogram light, appearing in both the light buffer and geometry objects
   // make sure these two are identical in geometry, e.g. having the same normal vector
@@ -450,7 +450,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                                     para_intersection,
                                     para_bounding_box,
                                     material));
-  gis.back()["Le"]->setFloat(make_float3(50.0f));  // to-do: power and/or radiance for light source
+  gis.back()["Le"]->setFloat(make_float3(30.0f));  // to-do: power and/or radiance for light source
 
   GeometryGroup geometry_group = context->createGeometryGroup(gis.begin(), gis.end());
   geometry_group->setAcceleration(context->createAcceleration("Bvh", "Bvh"));

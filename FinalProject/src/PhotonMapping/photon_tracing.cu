@@ -84,8 +84,7 @@ rtDeclareVariable(float, index_of_refraction, , );  // non-zero indiates a refra
 
 RT_PROGRAM void pt_photon_ray_closest_hit() {
   if (pt_photon_ray_payload.num_deposits >= max_num_deposits ||
-      pt_photon_ray_payload.depth > max_depth ||
-      fmaxf(pt_photon_ray_payload.power) < 1e-5f) {
+      pt_photon_ray_payload.depth > max_depth) {
     return;
   }
 

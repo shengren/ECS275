@@ -146,7 +146,7 @@ __device__ __inline__ void estimateRadiance(const float3 position,
       // accumulate photons
       if (distance2 <= radius2) {
         //if (dot(normal, pr.normal) > 1e-3f) {  // on the same plane?
-        if (dot(normal, pr.incoming) > 1e-3f) {
+        if (dot(normal, pr.incoming) > 1e-3f) {  // to-do: better way?
           total_flux += pr.power * getDiffuseBRDF(Rho_d);  // with BRDF
           num_photons++;
           if (distance2 > max_radius2)

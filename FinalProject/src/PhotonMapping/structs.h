@@ -53,9 +53,11 @@ struct Neighbor {
   int idx;
 };
 
-struct Sphere {
+/*
+struct Sphere {  // for caustic photon tracing
   optix::float3 center;
   float radius;
 };
+*/
 
 #endif  // STRUCTS_H_
