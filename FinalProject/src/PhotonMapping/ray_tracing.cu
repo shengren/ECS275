@@ -102,7 +102,7 @@ __device__ __inline__ void estimateRadiance(const float3 position,
   max_radius2 = 0.0f;
 
   /*
-  const int max_heap_size = (1 << 7) - 1;
+  const int max_heap_size = (1 << 7) - 1;  // 127
   Neighbor max_heap[max_heap_size];
   for (int i = 0; i < max_heap_size; ++i) {
     max_heap[i].dist2 = FLT_MAX;
@@ -143,7 +143,7 @@ __device__ __inline__ void estimateRadiance(const float3 position,
             max_radius2 = distance2;
         }
         /*
-        if (dot(normal, pr.normal) > 1e-2f &&
+        if (dot(normal, pr.normal) > 1e-3f &&
             distance2 < max_heap[0].dist2) {  // heap insertion
           max_heap[0].dist2 = distance2;
           max_heap[0].idx = node;

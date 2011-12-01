@@ -23,17 +23,17 @@ PhotonMappingScene::PhotonMappingScene()
       height(512),
       sqrt_num_subpixels(2),
       frame_number(0),
-      pt_width(1500),
-      pt_height(1500),
+      pt_width(1000),
+      pt_height(1000),
       max_num_deposits(2),
       min_depth(2),  // start recording from 2 bounces is the regular case, 1 is for test
       max_depth(5),
-      radius2(400.0f)
+      radius2(300.0f)
 {}
 
 void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   context->setEntryPointCount(num_programs);  // rt, pt, gt = 3
-  context->setStackSize(5000);  // to-do: tuning
+  context->setStackSize(7000);  // to-do: tuning
 
   // enable print in kernels for debugging
   context->setPrintEnabled(1);
@@ -68,7 +68,7 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
 
   // knn search
 
-  photon_map_size = pow2roundup(pt_width * pt_height * max_num_deposits / 2) - 1;  // to-do: based on tests
+  photon_map_size = pow2roundup(pt_width * pt_height * max_num_deposits) - 1;
   photon_map = context->createBuffer(RT_BUFFER_INPUT);
   photon_map->setFormat(RT_FORMAT_USER);
   photon_map->setElementSize(sizeof(PhotonRecord));
@@ -254,7 +254,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
   light.v2 = make_float3(-130.0f, 0.0, 0.0f);
   light.normal = normalize(cross(light.v1, light.v2));
   light.area = length(cross(light.v1, light.v2));
-  light.power = make_float3(1e7f);
+  light.power = make_float3(2e7f);
   light.sqrt_num_samples = 2;
   light.emitted = make_float3(50.0f);
   // add this light to the engine
@@ -322,6 +322,14 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
   gis.push_back(createParallelogram(make_float3(0.0f, 0.0f, 559.2f),
                                     make_float3(0.0f, 548.8f, 0.0f),
                                     make_float3(556.0f, 0.0f, 0.0f),
+                                    para_intersection,
+                                    para_bounding_box,
+                                    material));
+  gis.back()["Rho_d"]->setFloat(white);
+  // Front wall
+  gis.push_back(createParallelogram(make_float3(0.0f, 0.0f, 0.0f),
+                                    make_float3(556.0f, 0.0f, 0.0f),
+                                    make_float3(0.0f, 548.8f, 0.0f),
                                     para_intersection,
                                     para_bounding_box,
                                     material));
