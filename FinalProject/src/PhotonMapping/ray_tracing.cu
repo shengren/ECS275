@@ -45,10 +45,9 @@ RT_PROGRAM void rt_ray_generation() {
               1e-2f);  // tmin; tmax uses default
 
       RTViewingRayPayload payload;
-      payload.index = launch_index;  // index to output_buffer
       payload.attenuation = make_float3(1.0f);
       payload.radiance = make_float3(0.0f);
-      payload.depth = 1;  // to-do: use the same max_depth with photons
+      payload.depth = 1;
       payload.seed = seed;
       payload.inside = false;
 
@@ -73,7 +72,7 @@ RT_PROGRAM void rt_ray_generation() {
 rtDeclareVariable(float3, bad_color, , );  // blue
 
 RT_PROGRAM void rt_exception() {
-  output_buffer[rt_viewing_ray_payload.index] = make_float4(bad_color, 0.0f);
+  output_buffer[launch_index] = make_float4(bad_color, 0.0f);
   rtPrintExceptionDetails();  // to-do: for debugging
 }
 
@@ -89,7 +88,7 @@ rtDeclareVariable(float3, Rho_d, , );
 rtDeclareVariable(float3, Rho_s, , );
 rtDeclareVariable(float, shininess, , );  // unused now
 rtDeclareVariable(float, index_of_refraction, , );  // non-zero indiates a refraction surface, Rho_s is needed as well
-rtDeclareVariable(uint, max_depth, , );
+rtDeclareVariable(uint, viewing_ray_max_depth, , );
 rtDeclareVariable(uint, rt_shadow_ray_type, , );
 rtDeclareVariable(float, radius2, , );
 
@@ -111,7 +110,7 @@ __device__ __inline__ void estimateRadiance(const float3 position,
   max_radius2 = 0.0f;
 
   /*
-  const int max_heap_size = (1 << 7) - 1;  // 127
+  const int max_heap_size = (1 << 6) - 1;
   Neighbor max_heap[max_heap_size];
   for (int i = 0; i < max_heap_size; ++i) {
     max_heap[i].dist2 = FLT_MAX;
@@ -146,7 +145,8 @@ __device__ __inline__ void estimateRadiance(const float3 position,
 
       // accumulate photons
       if (distance2 <= radius2) {
-        if (dot(normal, pr.normal) > 1e-3f) {  // on the same plane?
+        //if (dot(normal, pr.normal) > 1e-3f) {  // on the same plane?
+        if (dot(normal, pr.incoming) > 1e-3f) {
           total_flux += pr.power * getDiffuseBRDF(Rho_d);  // with BRDF
           num_photons++;
           if (distance2 > max_radius2)
@@ -322,7 +322,7 @@ RT_PROGRAM void rt_viewing_ray_closest_hit() {
     return;
   }
 
-  if (rt_viewing_ray_payload.depth >= max_depth)  // to-do: sharing the max_depth with photon rays
+  if (rt_viewing_ray_payload.depth > viewing_ray_max_depth)
     return;  // stop recursion
 
   rt_viewing_ray_payload.depth++;
@@ -363,6 +363,8 @@ RT_PROGRAM void rt_viewing_ray_closest_hit() {
             1e-2f);
     rtTrace(top_object, ray, refraction_payload);
     rt_viewing_ray_payload.radiance += refraction_payload.radiance;  // recursively return
+    // update the seed
+    reflection_payload.seed = refraction_payload.seed;
   }
 
   // reflection
@@ -373,6 +375,8 @@ RT_PROGRAM void rt_viewing_ray_closest_hit() {
           1e-2f);
   rtTrace(top_object, ray, reflection_payload);
   rt_viewing_ray_payload.radiance += reflection_payload.radiance;  // recursively return
+  // update the seed
+  rt_viewing_ray_payload.seed = reflection_payload.seed;
 }
 
 // ray tracing, viewing ray, miss, default material

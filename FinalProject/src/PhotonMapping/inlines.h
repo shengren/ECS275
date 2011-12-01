@@ -57,15 +57,37 @@ __device__ __inline__ optix::float3 sampleUnitHemisphereCosine(
 }
 
 __device__ __inline__ void generatePhoton(const ParallelogramLight& light,
-                                          uint& seed,
-                                          float3& sample_position,
-                                          float3& sample_direction,
-                                          float3& sample_power) {
+                                          optix::uint& seed,
+                                          optix::float3& sample_position,
+                                          optix::float3& sample_direction,
+                                          optix::float3& sample_power) {
   sample_position = light.corner + light.v1 * rnd(seed) + light.v2 * rnd(seed);
 
   sample_direction = sampleUnitHemisphereCosine(seed, light.normal);
 
   sample_power = light.power;
+}
+
+__device__ __inline__ void generateCausticPhoton(const Sphere& sphere,
+                                                 const ParallelogramLight& light,
+                                                 optix::uint& seed,
+                                                 optix::float3& sample_position,
+                                                 optix::float3& sample_direction,
+                                                 optix::float3& sample_power) {
+  sample_position = light.corner + light.v1 * rnd(seed) + light.v2 * rnd(seed);
+
+  sample_power = light.power;
+
+  // uniformly sampling on the caustic sphere
+  float phi = 2.0f * M_PI * rnd(seed);
+  float cos_theta = 1.0f - 2.0f * rnd(seed);
+  float sin_theta = sqrt(1.0f - cos_theta * cos_theta);
+  float3 sdir = make_float3(cos(phi) * sin_theta,
+                            sin(phi) * sin_theta,
+                            cos_theta);
+  float3 sp = sphere.center + sdir * sphere.radius;
+
+  sample_direction = optix::normalize(sp - sample_position);
 }
 
 __device__ __inline__ float getGeometry(const optix::float3 ns,

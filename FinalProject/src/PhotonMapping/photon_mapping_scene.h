@@ -72,6 +72,7 @@ class PhotonMappingScene : public SampleScene {
   optix::uint max_num_deposits;
   optix::uint min_depth;
   optix::uint max_depth;
+  optix::uint viewing_ray_max_depth;
   optix::uint photon_map_size;
   float radius2;
   optix::Buffer photon_record_buffer;

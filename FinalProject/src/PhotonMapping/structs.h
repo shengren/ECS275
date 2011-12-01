@@ -9,7 +9,6 @@
 #define EXCEPTION (1 << 8)
 
 struct RTViewingRayPayload {
-  optix::uint2 index;
   optix::float3 attenuation;
   optix::float3 radiance;
   optix::uint depth;
@@ -52,6 +51,11 @@ struct ParallelogramLight {
 struct Neighbor {
   float dist2;
   int idx;
+};
+
+struct Sphere {
+  optix::float3 center;
+  float radius;
 };
 
 #endif  // STRUCTS_H_

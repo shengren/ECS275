@@ -23,17 +23,18 @@ PhotonMappingScene::PhotonMappingScene()
       height(512),
       sqrt_num_subpixels(2),
       frame_number(0),
-      pt_width(1300),
-      pt_height(1300),
-      max_num_deposits(2),
+      pt_width(1000),
+      pt_height(1000),
+      max_num_deposits(3),  // based on the max_depth, at most 2 photons will be stored
       min_depth(2),  // start recording from 2 bounces is the regular case, 1 is for test
-      max_depth(5),
-      radius2(300.0f)
+      max_depth(5),  // first hit one glass, sceond hit one glass, third hit on diffuse. first hit on specular, then hit on diffuse
+      viewing_ray_max_depth(6),
+      radius2(400.0f)
 {}
 
 void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   context->setEntryPointCount(num_programs);  // rt, pt, gt = 3
-  context->setStackSize(5000);  // to-do: tuning
+  context->setStackSize(8000);  // to-do: tuning
 
   // enable print in kernels for debugging
   context->setPrintEnabled(1);
@@ -50,6 +51,7 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   context["max_num_deposits"]->setUint(max_num_deposits);
   context["min_depth"]->setUint(min_depth);
   context["max_depth"]->setUint(max_depth);
+  context["viewing_ray_max_depth"]->setUint(viewing_ray_max_depth);
 
   photon_record_buffer = context->createBuffer(RT_BUFFER_OUTPUT);
   photon_record_buffer->setFormat(RT_FORMAT_USER);
@@ -248,6 +250,23 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
   light_buffer->unmap();
   context["lights"]->setBuffer(light_buffer);
 
+/*
+  // create caustic objects
+  Sphere sphere;
+  sphere.center = make_float3(278.0f, 120.0f, 280.0f);  // center
+  //sphere.center = make_float3(440.0f, 80.0f, 400.0f);  // left
+  //sphere.center = make_float3(130.0f, 80.0f, 250.0f);  // right
+  sphere.radius = 80.0f;
+  Buffer caustics = context->createBuffer(RT_BUFFER_INPUT);
+  caustics->setFormat(RT_FORMAT_USER);
+  caustics->setElementSize(sizeof(Sphere));
+  //caustics->setSize(0);
+  caustics->setSize(1);
+  memcpy(caustics->map(), &sphere, sizeof(sphere));
+  caustics->unmap();
+  context["caustics"]->setBuffer(caustics);
+*/
+
   // create geometry instances
 
   // load programs for geometry parallelogram
@@ -277,9 +296,9 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
       context->createProgramFromPTXFile(getPTXPath("ray_tracing.cu"),
                                         "rt_shadow_ray_any_hit"));
 
-  const float3 white = make_float3(0.8f, 0.8f, 0.8f);
-  const float3 green = make_float3(0.05f, 0.8f, 0.05f);
-  const float3 red = make_float3(0.8f, 0.05f, 0.05f);
+  const float3 white = make_float3(0.9f, 0.9f, 0.9f);
+  const float3 green = make_float3(0.2f, 0.9f, 0.2f);
+  const float3 red = make_float3(0.9f, 0.2f, 0.2f);
   const float3 black = make_float3(0.0f);
 
   vector<GeometryInstance> gis;
@@ -412,14 +431,15 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                              sphere_intersection,
                              sphere_bounding_box,
                              material));
-  gis.back()["Rho_s"]->setFloat(make_float3(0.99f));
+  gis.back()["Rho_s"]->setFloat(make_float3(0.9f));
   // sphere glass
-  gis.push_back(createSphere(make_float3(130.0f, 80.0f, 250.0f),
+  //gis.push_back(createSphere(make_float3(278.0f, 120.0f, 280.0f),  // center
+  gis.push_back(createSphere(make_float3(130.0f, 80.0f, 250.0f),  // regular
                              80.0f,
                              sphere_intersection,
                              sphere_bounding_box,
                              material));
-  gis.back()["Rho_s"]->setFloat(make_float3(0.99f));
+  gis.back()["Rho_s"]->setFloat(make_float3(0.9f));
   gis.back()["index_of_refraction"]->setFloat(1.4f);
 
   // Parallelogram light, appearing in both the light buffer and geometry objects
