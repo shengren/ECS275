@@ -76,7 +76,6 @@ class PhotonMappingScene : public SampleScene {
   optix::uint photon_map_size;
   float radius2;
   optix::Buffer photon_record_buffer;
-  optix::Buffer photon_map;
 };
 
 #endif  // PHOTON_MAPPING_SCENE_H_

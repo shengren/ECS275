@@ -53,10 +53,12 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   context["max_depth"]->setUint(max_depth);
   context["viewing_ray_max_depth"]->setUint(viewing_ray_max_depth);
 
-  photon_record_buffer = context->createBuffer(RT_BUFFER_OUTPUT);
+  photon_map_size = pow2roundup(pt_width * pt_height * max_num_deposits) - 1;
+
+  photon_record_buffer = context->createBuffer(RT_BUFFER_INPUT_OUTPUT);
   photon_record_buffer->setFormat(RT_FORMAT_USER);
   photon_record_buffer->setElementSize(sizeof(PhotonRecord));
-  photon_record_buffer->setSize(pt_width * pt_height * max_num_deposits);
+  photon_record_buffer->setSize(photon_map_size);
   context["photon_record_buffer"]->set(photon_record_buffer);
 
   context->setRayGenerationProgram(
@@ -67,15 +69,6 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
       pt,
       context->createProgramFromPTXFile(getPTXPath("photon_tracing.cu"),
                                         "pt_exception"));
-
-  // knn search
-
-  photon_map_size = pow2roundup(pt_width * pt_height * max_num_deposits) - 1;
-  photon_map = context->createBuffer(RT_BUFFER_INPUT);
-  photon_map->setFormat(RT_FORMAT_USER);
-  photon_map->setElementSize(sizeof(PhotonRecord));
-  photon_map->setSize(photon_map_size);
-  context["photon_map"]->set(photon_map);
 
   // ray tracing
 
@@ -123,6 +116,8 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
     frame_number = 0;
   }
 
+  printf("frame_number = %d\n", frame_number);
+
   // to-do: for test only
   // render only one frame, but, actually, 'trace' is called twice.
   // on Mac, can't see output if calling 'trace' only once.
@@ -142,6 +137,17 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
   Buffer buffer = getOutputBuffer();
   RTsize buffer_width, buffer_height;
   buffer->getSize(buffer_width, buffer_height);
+
+  // clean up photon_record_buffer (the photon_map used in ray_tracing)
+  PhotonRecord *photons_data = reinterpret_cast<PhotonRecord*>( photon_record_buffer->map() );
+  for (int i = 0; i < photon_map_size; ++i) {
+    photons_data[i].power =
+      photons_data[i].position =
+      photons_data[i].normal =
+      photons_data[i].incoming = make_float3(0.0f);
+    photons_data[i].axis = 0;
+  }
+  photon_record_buffer->unmap();
 
   // photon_tracing
   context->launch(pt,
@@ -454,6 +460,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
 
   GeometryGroup geometry_group = context->createGeometryGroup(gis.begin(), gis.end());
   geometry_group->setAcceleration(context->createAcceleration("Bvh", "Bvh"));
+  //geometry_group->setAcceleration(context->createAcceleration("NoAccel", "NoAccel"));
   context["top_object"]->set(geometry_group);
 }
 
@@ -461,31 +468,32 @@ void PhotonMappingScene::createPhotonMap() {
   SplitChoice _split_choice = LongestDim;
 
   // the following is modified from createPhotonMap() in progressivePhotonMap/ppm.cpp
-  PhotonRecord* photons_data    = reinterpret_cast<PhotonRecord*>( photon_record_buffer->map() );  // input
+  PhotonRecord *photons_data = reinterpret_cast<PhotonRecord*>( photon_record_buffer->map() );  // input
 
   // Push all valid photons to front of list
   int valid_photons = 0;
   int photons_size = pt_width * pt_height * max_num_deposits;
-  PhotonRecord** temp_photons = new PhotonRecord*[photons_size];  // a pointer array
+  PhotonRecord *backup_photons = new PhotonRecord[photons_size];
+  PhotonRecord **temp_photons = new PhotonRecord*[photons_size];  // a pointer array
   for (int i = 0; i < photons_size; ++i) {
+    backup_photons[i] = photons_data[i];  // copy to main memory
     if (fmaxf(photons_data[i].power) > 0.0f) {
-      temp_photons[valid_photons++] = &photons_data[i];
+      temp_photons[valid_photons++] = &backup_photons[i];
     }
   }
 
-  printf("valid_photons = %d / %d, photon_map_size = %d\n", valid_photons, photons_size, photon_map_size);
+  printf("valid_photons = %d / %d, photon_map_size = %d\n",
+         valid_photons,
+         photons_size,
+         photon_map_size);
 
-  // Make sure we arent at most 1 less than power of 2
-  valid_photons = valid_photons >= photon_map_size ? photon_map_size : valid_photons;
-
-  PhotonRecord* photon_map_data = reinterpret_cast<PhotonRecord*>( photon_map->map() );  // output
-
-  for( unsigned int i = 0; i < photon_map_size; ++i ) {
-    photon_map_data[i].power =
-    photon_map_data[i].position =
-    photon_map_data[i].normal =
-    photon_map_data[i].incoming = make_float3(0.0f);
-    photon_map_data[i].axis = 0;
+  // clean before generating photon map
+  for (int i = 0; i < photon_map_size; ++i) {
+    photons_data[i].power =
+    photons_data[i].position =
+    photons_data[i].normal =
+    photons_data[i].incoming = make_float3(0.0f);
+    photons_data[i].axis = 0;
   }
 
   float3 bbmin = make_float3(0.0f);
@@ -502,12 +510,10 @@ void PhotonMappingScene::createPhotonMap() {
   }
 
   // Now build KD tree
-  buildKDTree( temp_photons, 0, valid_photons, 0, photon_map_data, 0, _split_choice, bbmin, bbmax );
+  buildKDTree( temp_photons, 0, valid_photons, 0, photons_data, 0, _split_choice, bbmin, bbmax );
 
   delete[] temp_photons;
-  photon_map->unmap();
-  photon_record_buffer->unmap();
+  delete[] backup_photons;
 
-  // to-do: release photon_record_buffer?
-  //context->checkError(rtBufferDestroy(photon_record_buffer->get()));
+  photon_record_buffer->unmap();
 }

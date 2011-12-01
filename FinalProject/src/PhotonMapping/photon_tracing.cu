@@ -21,6 +21,8 @@ rtDeclareVariable(uint2, launch_dim, rtLaunchDim, );
 rtDeclareVariable(uint, frame_number, , );
 rtDeclareVariable(float, total_emitted, , );
 
+// since we reuse the photon_record_buffer, make sure it is clean before generating photons
+// now it is cleaned before executing this program.
 RT_PROGRAM void pt_ray_generation() {
   uint index = launch_index.y * launch_dim.x + launch_index.x;  // to-do: is 1D launch enough?
   uint seed = tea<16>(index, frame_number);
@@ -28,24 +30,8 @@ RT_PROGRAM void pt_ray_generation() {
   float3 sample_direction;
   float3 sample_power;
 
-  // to-do: better way?
-  // initialize photon records assigned to this photon
-  for (int i = 0; i < max_num_deposits; ++i) {
-    photon_record_buffer[index + i].power = 
-    photon_record_buffer[index + i].position = 
-    photon_record_buffer[index + i].normal = 
-    photon_record_buffer[index + i].incoming = 
-    make_float3(0.0f);
-    photon_record_buffer[index + i].axis = 0;
-  }
-
-  //if (caustics.size() == 0 || index % 1000 < 999) {  // percentage of regular/caustic photons
-    generatePhoton(lights[0], seed,
-        sample_position, sample_direction, sample_power);  // to-do: only one parallelogram light now
-  //} else {  // caustic map
-  //  generateCausticPhoton(caustics[0], lights[0], seed,
-  //      sample_position, sample_direction, sample_power);
-  //}
+  generatePhoton(lights[0], seed,
+      sample_position, sample_direction, sample_power);  // to-do: only one parallelogram light now
 
   Ray ray(sample_position,
           sample_direction,

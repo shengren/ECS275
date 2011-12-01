@@ -77,7 +77,7 @@ RT_PROGRAM void rt_exception() {
 }
 
 // ray tracing, viewing ray, closest hit, default material
-rtBuffer<PhotonRecord, 1> photon_map;  // 1D
+rtBuffer<PhotonRecord, 1> photon_record_buffer;  // 1D
 rtBuffer<ParallelogramLight> lights;  // to-do: only have parallelogram lights
 rtDeclareVariable(Ray, rt_viewing_ray, rtCurrentRay, );
 rtDeclareVariable(float, hit_t, rtIntersectionDistance, );
@@ -127,7 +127,7 @@ __device__ __inline__ void estimateRadiance(const float3 position,
 
   push_node(0);
 
-  int photon_map_size = photon_map.size();  // for debugging
+  int photon_map_size = photon_record_buffer.size();  // for debugging
 
   do {
     // debugging assertion
@@ -137,7 +137,7 @@ __device__ __inline__ void estimateRadiance(const float3 position,
       return;
     }
 
-    const PhotonRecord& pr = photon_map[node];
+    const PhotonRecord& pr = photon_record_buffer[node];
 
     if (!(pr.axis & PPM_NULL)) {
       float3 diff = position - pr.position;
@@ -222,7 +222,7 @@ __device__ __inline__ void estimateRadiance(const float3 position,
   /*
   for (int i = 0; i < max_heap_size; ++i) {
     if (max_heap[i].idx != -1) {
-      total_flux += photon_map[max_heap[i].idx].power * getDiffuseBRDF(Rho_d);  // with BRDF
+      total_flux += photon_record_buffer[max_heap[i].idx].power * getDiffuseBRDF(Rho_d);  // with BRDF
       num_photons++;
       if (max_heap[i].dist2 > max_radius2)
         max_radius2 = max_heap[i].dist2;
