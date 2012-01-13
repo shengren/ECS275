@@ -23,11 +23,15 @@ if(GLUT_FOUND AND OPENGL_FOUND)
   include_directories(${GLUT_INCLUDE_DIR})
   add_definitions(-DGLUT_FOUND -DGLUT_NO_LIB_PRAGMA)
 
-  # See top level CMakeLists.txt file for documentation of OPTIX_add_sample_executable.
-  OPTIX_add_sample_executable(PhotonMapping
+  set(target_name
+    PhotonMapping
+    )
+  set(host_files
     main.cpp
     photon_mapping_scene.h
     photon_mapping_scene.cpp
+    )
+  set(optix_files
     ray_tracing.cu
     photon_tracing.cu
     gathering.cu
@@ -39,6 +43,34 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     kdtree.h
     select.h
     random.h
+    )
+  set(cudac_files
+    device_functions.h
+    device_functions.cu
+    )
+
+  source_group("PTX Files"  REGULAR_EXPRESSION ".+\\.ptx$")
+  source_group("CUDA Files" REGULAR_EXPRESSION ".+\\.cu$")
+
+  set(CUDA_64_BIT_DEVICE_CODE ON)
+
+  CUDA_WRAP_SRCS(${target_name} PTX ptx_generated_files ${optix_files})
+
+  CUDA_WRAP_SRCS(${target_name} OBJ obj_generated_files ${cudac_files})
+
+  add_executable(${target_name}
+    ${host_files}
+    ${optix_files}
+    ${cudac_files}
+    ${ptx_generated_files}
+    ${obj_generated_files}
+    )
+
+  target_link_libraries(${target_name}
+    sutil
+    optix
+    ${optix_rpath}
+    ${CUDA_CUDART_LIBRARY}
     )
 
 else()

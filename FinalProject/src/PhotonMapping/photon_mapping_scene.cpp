@@ -13,6 +13,8 @@
 #include "structs.h"
 #include "inlines.h"
 
+#include "device_functions.h"
+
 using namespace std;
 using namespace optix;
 
@@ -193,6 +195,9 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
 
   // build photon map
   createPhotonMap();
+
+  if (frame_number == 1)
+    TestDeviceFunction();
 
   // gathering
   context->launch(gt,
