@@ -30,12 +30,12 @@ RT_PROGRAM void pt_ray_generation() {
   // to-do: better way?
   // initialize photon records assigned to this photon
   for (int i = 0; i < max_num_deposits; ++i) {
-    photon_record_buffer[index + i].power = 
-    photon_record_buffer[index + i].position = 
-    photon_record_buffer[index + i].normal = 
-    photon_record_buffer[index + i].incoming = 
-    make_float3(0.0f);
-    photon_record_buffer[index + i].axis = 0;
+    photon_record_buffer[index * max_num_deposits + i].power = 
+    photon_record_buffer[index * max_num_deposits + i].position = 
+    photon_record_buffer[index * max_num_deposits + i].normal = 
+    photon_record_buffer[index * max_num_deposits + i].incoming = 
+      make_float3(0.0f);
+    photon_record_buffer[index * max_num_deposits + i].axis = 0;
   }
 
   // to-do: only one parallelogram light now
@@ -89,7 +89,7 @@ RT_PROGRAM void pt_photon_ray_closest_hit() {
   // record when hit diffuse surfaces and bounced at least once (avoid doubling direct illumination)
   // min_depth = 1, record from the first bounce for test, = 2, regular case
   if (fmaxf(Rho_d) > 0.0f && pt_photon_ray_payload.depth >= min_depth) {
-    PhotonRecord& pr = photon_record_buffer[pt_photon_ray_payload.index +
+    PhotonRecord& pr = photon_record_buffer[pt_photon_ray_payload.index * max_num_deposits +
                                             pt_photon_ray_payload.num_deposits];
     pr.power = pt_photon_ray_payload.power;
     pr.position = hit_point;

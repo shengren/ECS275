@@ -48,6 +48,7 @@ class PhotonMappingScene : public SampleScene {
       const optix::Program& bounding_box,
       const optix::Material& material);
   void createPhotonMap();
+  void createPhotonMap_new_knn();  // testing
 
   enum ProgramEntryPoint {
     rt,
@@ -80,6 +81,9 @@ class PhotonMappingScene : public SampleScene {
   optix::Buffer photon_record_buffer;
   optix::Buffer photon_map;
   //optix::Buffer subpixel_accumulator;  // to-do: disable this anti-aliasing implementation
+  optix::uint K;
+  optix::Buffer knn_result;  // to-do: temporary name. Size is max_num_query * K. Values are indices in 'photon_record_buffer'.
+
 };
 
 #endif  // PHOTON_MAPPING_SCENE_H_

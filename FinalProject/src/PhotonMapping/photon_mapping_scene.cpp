@@ -29,7 +29,8 @@ PhotonMappingScene::PhotonMappingScene()
       max_num_deposits(2),
       min_depth(2),  // start recording from 2 bounces is the regular case, 1 is for test
       max_depth(5),
-      radius2(400.0f)
+      radius2(400.0f),
+      K(50)
 {}
 
 void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
@@ -109,6 +110,13 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   photon_map->setElementSize(sizeof(PhotonRecord));
   photon_map->setSize(photon_map_size);
   context["photon_map"]->set(photon_map);
+
+  // new knn
+
+  knn_result = context->createBuffer(RT_BUFFER_INPUT);
+  knn_result->setFormat(RT_FORMAT_INT);
+  knn_result->setSize(width * height * K);
+  context["knn_result"]->set(knn_result);
 
   // gathering
 
@@ -196,8 +204,7 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
   // build photon map
   createPhotonMap();
 
-  if (frame_number == 1)
-    TestDeviceFunction();
+  createPhotonMap_new_knn();  // testing
 
   // gathering
   context->launch(gt,
@@ -510,6 +517,8 @@ void PhotonMappingScene::createPhotonMap() {
     }
   }
 
+  printf("valid_photons = %d\n", valid_photons);
+
   // Make sure we arent at most 1 less than power of 2
   valid_photons = valid_photons >= photon_map_size ? photon_map_size : valid_photons;
 
@@ -532,4 +541,75 @@ void PhotonMappingScene::createPhotonMap() {
   delete[] temp_photons;
   photon_map->unmap();
   photon_record_buffer->unmap();
+}
+
+void PhotonMappingScene::createPhotonMap_new_knn() {
+  const unsigned int max_num_query = width * height;
+  const unsigned int max_num_data = pt_width * pt_height * max_num_deposits;
+
+  float *h_query_x = new float[max_num_query];
+  float *h_query_y = new float[max_num_query];
+  float *h_query_z = new float[max_num_query];
+  float *h_data_x = new float[max_num_data];
+  float *h_data_y = new float[max_num_data];
+  float *h_data_z = new float[max_num_data];
+
+  int *qid_mapback = new int[max_num_query];
+  int *did_mapback = new int[max_num_data];
+
+  unsigned int num_query = 0;
+  unsigned int num_data = 0;
+
+  HitRecord* h_hit_record = (HitRecord*)(hit_record_buffer->map());
+  for (int i = 0; i < max_num_query; ++i) {
+    if (h_hit_record[i].flags == HIT) {
+      qid_mapback[num_query] = i;
+      h_query_x[num_query] = h_hit_record[i].position.x;
+      h_query_y[num_query] = h_hit_record[i].position.y;
+      h_query_z[num_query] = h_hit_record[i].position.z;
+      ++num_query;
+    }
+  }
+  hit_record_buffer->unmap();
+
+  PhotonRecord* h_photon_record = (PhotonRecord*)(photon_record_buffer->map());
+  for (int i = 0; i < max_num_data; ++i) {
+    if (fmaxf(h_photon_record[i].power) > 0.0f) {
+      did_mapback[num_data] = i;
+      h_data_x[num_data] = h_photon_record[i].position.x;
+      h_data_y[num_data] = h_photon_record[i].position.y;
+      h_data_z[num_data] = h_photon_record[i].position.z;
+      ++num_data;
+    }
+  }
+  photon_record_buffer->unmap();
+
+  printf("num_query = %d  num_data = %d\n", num_query, num_data);
+
+  unsigned int *h_result = new unsigned int[num_query * K];
+
+  // call new knn api
+
+  // copy to photon map, an optix buffer
+  int *h_photon_map = (int*)(knn_result->map());  // RT_FORMAT_INT
+  for (int i = 0; i < max_num_query * K; ++i)
+    h_photon_map[i] = -1;  // initial value = invalid
+  for (int i = 0; i < num_query; ++i) {
+    int qid = qid_mapback[i];
+    for (int j = 0; j < K; ++j) {
+      int did = did_mapback[h_result[i * K + j]];
+      h_photon_map[qid * K + j] = did;
+    }
+  }
+  knn_result->unmap();
+
+  delete[] h_query_x;
+  delete[] h_query_y;
+  delete[] h_query_z;
+  delete[] h_data_x;
+  delete[] h_data_y;
+  delete[] h_data_z;
+  delete[] qid_mapback;
+  delete[] did_mapback;
+  delete[] h_result;
 }
