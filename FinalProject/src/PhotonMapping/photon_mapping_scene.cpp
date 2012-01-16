@@ -113,6 +113,8 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
 
   // new knn
 
+  context["K"]->setUint(K);
+
   knn_result = context->createBuffer(RT_BUFFER_INPUT);
   knn_result->setFormat(RT_FORMAT_INT);
   knn_result->setSize(width * height * K);
@@ -554,8 +556,8 @@ void PhotonMappingScene::createPhotonMap_new_knn() {
   float *h_data_y = new float[max_num_data];
   float *h_data_z = new float[max_num_data];
 
-  int *qid_mapback = new int[max_num_query];
-  int *did_mapback = new int[max_num_data];
+  int *qid_mapback = new int[max_num_query];  // we only use the valid queries, hit record with state HIT
+  int *did_mapback = new int[max_num_data];  // similarly, we only use the valid photon record as data
 
   unsigned int num_query = 0;
   unsigned int num_data = 0;

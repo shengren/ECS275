@@ -106,6 +106,28 @@ __device__ __inline__ void estimateRadiance(const HitRecord& hr,
   } while (node);
 }
 
+// new knn
+rtBuffer<PhotonRecord, 1> photon_record_buffer;
+rtBuffer<int, 1> knn_result;  // 1D: #Q * K
+rtDeclareVariable(uint, K, , );
+
+__device__ __inline__ void estimateRadiance_new_knn(const HitRecord& hr,
+                                                    const int qid,  // index of hr
+                                                    float3& radiance) {
+  radiance = make_float3(0.0f, 0.0f, 0.0f);
+  float max_radius = 0.0;  // to-do: if we know this knowledge, we don't need to find it here.
+
+  for (int i = 0; i < K; ++i) {
+    int did = knn_result[qid * K + i];  // did != -1
+    radiance += photon_record_buffer[did].power * getDiffuseBRDF(hr.Rho_d);  // with BRDF
+    float radius = length(photon_record_buffer[did].position - hr.position);  // unnecessary if we have it in the KNN result
+    if (max_radius < radius)
+      max_radius = radius;
+  }
+
+  radiance /= (M_PI * max_radius * max_radius);  // to-do: max_radius should larger than or equal to 1.0?
+}
+
 // to-do: make this function separate in order to make the code clean
 // launch_index, launch_dim, frame_number, lights are local variables
 __device__ __inline__ float3 directIllumination(const HitRecord& hr) {
