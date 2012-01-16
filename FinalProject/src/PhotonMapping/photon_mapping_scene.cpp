@@ -19,12 +19,12 @@ using namespace optix;
 
 PhotonMappingScene::PhotonMappingScene()
     : context(_context),
-      width(768),
-      height(768),
+      width(512),
+      height(512),
       sqrt_num_subpixels(2),
       frame_number(0),
-      pt_width(1000),
-      pt_height(1000),
+      pt_width(500),
+      pt_height(500),
       max_num_deposits(3),  // based on the max_depth, at most 2 photons will be stored
       min_depth(2),  // start recording from 2 bounces is the regular case, 1 is for test
       max_depth(5),  // first hit one glass, sceond hit one glass, third hit on diffuse. first hit on specular, then hit on diffuse
@@ -244,7 +244,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
   light.v2 = make_float3(-130.0f, 0.0, 0.0f);
   light.normal = normalize(cross(light.v1, light.v2));
   light.area = length(cross(light.v1, light.v2));
-  light.power = make_float3(6e7f);
+  light.power = make_float3(1e7f);
   light.sqrt_num_samples = 2;
   light.emitted = make_float3(50.0f);
   // add this light to the engine
@@ -357,6 +357,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                                     para_bounding_box,
                                     material));
   gis.back()["Rho_d"]->setFloat(red);
+/*
   // Short block
   gis.push_back(createParallelogram(make_float3(130.0f, 165.0f, 65.0f),
                                     make_float3(-48.0f, 0.0f, 160.0f),
@@ -429,7 +430,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                                     para_bounding_box,
                                     material));
   gis.back()["Rho_d"]->setFloat(white);
-/*
+*/
   // sphere mirror
   gis.push_back(createSphere(make_float3(440.0f, 80.0f, 400.0f),
                              80.0f,
@@ -438,15 +439,14 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
                              material));
   gis.back()["Rho_s"]->setFloat(make_float3(0.9f));
   // sphere glass
-  gis.push_back(createSphere(make_float3(278.0f, 120.0f, 280.0f),  // center
-  //gis.push_back(createSphere(make_float3(130.0f, 80.0f, 250.0f),  // regular
+  //gis.push_back(createSphere(make_float3(278.0f, 120.0f, 280.0f),  // center
+  gis.push_back(createSphere(make_float3(130.0f, 80.0f, 250.0f),  // regular
                              80.0f,
                              sphere_intersection,
                              sphere_bounding_box,
                              material));
   gis.back()["Rho_s"]->setFloat(make_float3(0.9f));
   gis.back()["index_of_refraction"]->setFloat(1.55f);
-*/
 
   // Parallelogram light, appearing in both the light buffer and geometry objects
   // make sure these two are identical in geometry, e.g. having the same normal vector

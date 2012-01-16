@@ -86,7 +86,7 @@ RT_PROGRAM void pt_photon_ray_closest_hit() {
   // record when hit diffuse surfaces and bounced at least once (avoid doubling direct illumination)
   // min_depth = 1, record from the first bounce for test, = 2, regular case
   if (fmaxf(Rho_d) > 0.0f && pt_photon_ray_payload.depth >= min_depth) {
-    PhotonRecord& pr = photon_record_buffer[pt_photon_ray_payload.index +
+    PhotonRecord& pr = photon_record_buffer[pt_photon_ray_payload.index * max_num_deposits +
                                             pt_photon_ray_payload.num_deposits];
     pr.power = pt_photon_ray_payload.power;
     pr.position = hit_point;
