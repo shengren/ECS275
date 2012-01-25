@@ -14,6 +14,7 @@
 #include "inlines.h"
 
 #include "device_functions.h"
+#include "new_knn.h"
 
 using namespace std;
 using namespace optix;
@@ -591,6 +592,9 @@ void PhotonMappingScene::createPhotonMap_new_knn() {
   unsigned int *h_result = new unsigned int[num_query * K];
 
   // call new knn api
+  new_knn_api(num_data, h_data_x, h_data_y, h_data_z,
+              num_query, h_query_x, h_query_y, h_query_z,
+              50, h_result);
 
   // copy to photon map, an optix buffer
   int *h_photon_map = (int*)(knn_result->map());  // RT_FORMAT_INT

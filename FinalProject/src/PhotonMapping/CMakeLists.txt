@@ -23,6 +23,8 @@ if(GLUT_FOUND AND OPENGL_FOUND)
   include_directories(${GLUT_INCLUDE_DIR})
   add_definitions(-DGLUT_FOUND -DGLUT_NO_LIB_PRAGMA)
 
+  link_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib)
+
   set(target_name
     PhotonMapping
     )
@@ -47,6 +49,7 @@ if(GLUT_FOUND AND OPENGL_FOUND)
   set(cudac_files
     device_functions.h
     device_functions.cu
+    new_knn.h
     )
 
   source_group("PTX Files"  REGULAR_EXPRESSION ".+\\.ptx$")
@@ -71,12 +74,13 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     optix
     ${optix_rpath}
     ${CUDA_CUDART_LIBRARY}
+    gpuknn
+    cudpp_x86_64
+    cutil  # must be after cudpp_x86_64
     )
 
 else()
   # GLUT or OpenGL not found
   message("Disabling PhotonMapping, which requires glut and opengl.")
 endif()
-
-
 
