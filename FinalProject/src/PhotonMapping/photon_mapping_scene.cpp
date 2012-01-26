@@ -24,8 +24,8 @@ PhotonMappingScene::PhotonMappingScene()
       height(256),
       sqrt_num_subpixels(1),  // to-do: disabled
       frame_number(0),
-      pt_width(128),
-      pt_height(128),
+      pt_width(256),
+      pt_height(256),
       max_num_deposits(2),
       min_depth(2),  // start recording from 2 bounces is the regular case, 1 is for test
       max_depth(5),
@@ -206,7 +206,7 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
   // build photon map
   createPhotonMap();
 
-  createPhotonMap_new_knn();  // testing
+  //createPhotonMap_new_knn();  // testing
 
   // gathering
   context->launch(gt,
@@ -300,7 +300,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
   light.v2 = make_float3(-130.0f, 0.0, 0.0f);
   light.normal = normalize(cross(light.v1, light.v2));
   light.area = length(cross(light.v1, light.v2));
-  light.power = make_float3(2e7f);
+  light.power = make_float3(5e6f);
   light.sqrt_num_samples = 2;
   light.emitted = make_float3(50.0f);
   // add this light to the engine
