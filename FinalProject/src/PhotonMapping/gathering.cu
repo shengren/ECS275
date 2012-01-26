@@ -179,6 +179,9 @@ __device__ __inline__ float3 directIllumination(const HitRecord& hr) {
   return light.emitted * getDiffuseBRDF(hr.Rho_d) * ratio;
 }
 
+rtDeclareVariable(uint, width, , );
+rtDeclareVariable(uint, height, , );
+
 RT_PROGRAM void gt_ray_generation() {
   // clean the output buffer
   if (frame_number == 1) {
@@ -195,12 +198,13 @@ RT_PROGRAM void gt_ray_generation() {
   }
 
   // indirect illumination
-  float3 total_flux = make_float3(0.0f);
-  int num_photons = 0;  // to-do: unused now
+  //float3 total_flux = make_float3(0.0f);
+  //int num_photons = 0;  // to-do: unused now
+  //estimateRadiance(hr, radius2, total_flux, num_photons);
+  //float3 indirect = total_flux / (M_PI * radius2);
 
-  estimateRadiance(hr, radius2, total_flux, num_photons);
-
-  float3 indirect = total_flux / (M_PI * radius2);
+  float3 indirect;
+  estimateRadiance_new_knn(hr, launch_index.y * height + launch_index.x, indirect);
 
   // direct illumination
   float3 direct = directIllumination(hr);

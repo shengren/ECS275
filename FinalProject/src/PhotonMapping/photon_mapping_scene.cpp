@@ -25,9 +25,9 @@ PhotonMappingScene::PhotonMappingScene()
       height(256),
       sqrt_num_subpixels(1),  // to-do: disabled
       frame_number(0),
-      pt_width(128),
-      pt_height(128),
-      max_num_deposits(2),
+      pt_width(300),
+      pt_height(300),
+      max_num_deposits(3),
       min_depth(2),  // start recording from 2 bounces is the regular case, 1 is for test
       max_depth(5),
       radius2(400.0f),
@@ -66,6 +66,8 @@ void PhotonMappingScene::initScene(InitialCameraData& camera_data) {
   hit_record_buffer->setElementSize(sizeof(HitRecord));
   hit_record_buffer->setSize(width, height);
   context["hit_record_buffer"]->set(hit_record_buffer);
+  context["width"]->setUint(width);
+  context["height"]->setUint(height);
 
   context->setRayGenerationProgram(
       rt,
@@ -205,9 +207,9 @@ void PhotonMappingScene::trace(const RayGenCameraData& camera_data) {
                   pt_height);
 
   // build photon map
-  createPhotonMap();
+  //createPhotonMap();  // cpu
 
-  createPhotonMap_new_knn();  // testing
+  createPhotonMap_new_knn();  // gpu knn
 
   // gathering
   context->launch(gt,
@@ -301,7 +303,7 @@ void PhotonMappingScene::createCornellBox(InitialCameraData& camera_data) {
   light.v2 = make_float3(-130.0f, 0.0, 0.0f);
   light.normal = normalize(cross(light.v1, light.v2));
   light.area = length(cross(light.v1, light.v2));
-  light.power = make_float3(2e7f);
+  light.power = make_float3(5e6f);
   light.sqrt_num_samples = 2;
   light.emitted = make_float3(50.0f);
   // add this light to the engine
