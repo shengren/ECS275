@@ -25,9 +25,9 @@ PhotonMappingScene::PhotonMappingScene()
       height(256),
       sqrt_num_subpixels(1),  // to-do: disabled
       frame_number(0),
-      pt_width(300),
-      pt_height(300),
-      max_num_deposits(3),
+      pt_width(256),
+      pt_height(256),
+      max_num_deposits(2),
       min_depth(2),  // start recording from 2 bounces is the regular case, 1 is for test
       max_depth(5),
       radius2(400.0f),
